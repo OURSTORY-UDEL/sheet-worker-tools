@@ -5,7 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import html2canvas from 'html2canvas';
 
 import jsPDF from 'jspdf';
+import * as pdfjsLib from 'pdfjs-dist';
 import { supabase } from '../lib/supabaseClient';
+
+if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 
 // ==========================================
 // 1. KOMPONEN: TOAST NOTIFICATION (PROFESIONAL)
@@ -373,13 +378,157 @@ function SignatureModal({ isOpen, onClose, onInsert }) {
 }
 
 // ==========================================
-// 4. DATA MENU DROPDOWN
+// 2.9. KOMPONEN: RENAME MODAL
+// ==========================================
+function RenameModal({ isOpen, onClose, currentName, onRename }) {
+  if (!isOpen) return null;
+  const [name, setName] = useState(currentName);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full animate-scale-up p-6">
+        <h3 className="font-bold text-lg text-slate-900 mb-4">Rename File</h3>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:border-emerald-500 outline-none mb-6"
+          autoFocus
+        />
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold text-sm hover:text-slate-800">Cancel</button>
+          <button onClick={() => { onRename(name); onClose(); }} className="px-4 py-2 bg-slate-900 text-white rounded font-bold text-sm hover:bg-slate-800">Rename</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 2.10. KOMPONEN: CONFIRM MODAL
+// ==========================================
+function ConfirmModal({ isOpen, onClose, title, message, onConfirm }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full animate-scale-up p-6">
+        <h3 className="font-bold text-lg text-slate-900 mb-2">{title}</h3>
+        <p className="text-sm text-slate-600 mb-6">{message}</p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold text-sm hover:text-slate-800">Cancel</button>
+          <button onClick={() => { onConfirm(); onClose(); }} className="px-4 py-2 bg-red-600 text-white rounded font-bold text-sm hover:bg-red-500">Confirm</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 2.11. KOMPONEN: TABLE MODAL
+// ==========================================
+function TableModal({ isOpen, onClose, onInsert }) {
+  if (!isOpen) return null;
+  const [rows, setRows] = useState(2);
+  const [cols, setCols] = useState(2);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full animate-scale-up p-5">
+        <h3 className="font-bold text-lg text-slate-800 mb-4">Insert Table</h3>
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div><label className="text-xs font-bold text-slate-500 uppercase">Rows</label><input type="number" min="1" max="20" value={rows} onChange={e => setRows(parseInt(e.target.value))} className="w-full border rounded p-2 mt-1" /></div>
+          <div><label className="text-xs font-bold text-slate-500 uppercase">Columns</label><input type="number" min="1" max="10" value={cols} onChange={e => setCols(parseInt(e.target.value))} className="w-full border rounded p-2 mt-1" /></div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold text-sm">Cancel</button>
+          <button onClick={() => { onInsert(rows, cols); onClose(); }} className="px-4 py-2 bg-slate-900 text-white rounded font-bold text-sm">Insert</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 2.12. KOMPONEN: HORIZONTAL LINE MODAL
+// ==========================================
+function LineModal({ isOpen, onClose, onInsert }) {
+  if (!isOpen) return null;
+  const [width, setWidth] = useState('100%');
+  const [height, setHeight] = useState('1px');
+  const [color, setColor] = useState('#000000');
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full animate-scale-up p-5">
+        <h3 className="font-bold text-lg text-slate-800 mb-4">Line Settings</h3>
+        <div className="space-y-4 mb-6">
+          <div><label className="text-xs font-bold text-slate-500 uppercase">Width</label><input type="text" value={width} onChange={e => setWidth(e.target.value)} className="w-full border rounded p-2 mt-1" placeholder="e.g. 100%, 50%, 200px" /></div>
+          <div><label className="text-xs font-bold text-slate-500 uppercase">Thickness</label><select value={height} onChange={e => setHeight(e.target.value)} className="w-full border rounded p-2 mt-1"><option value="1px">Thin (1px)</option><option value="2px">Medium (2px)</option><option value="4px">Thick (4px)</option><option value="8px">Bold (8px)</option></select></div>
+          <div><label className="text-xs font-bold text-slate-500 uppercase">Color</label><input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-full h-10 border rounded mt-1 cursor-pointer" /></div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold text-sm">Cancel</button>
+          <button onClick={() => { onInsert(width, height, color); onClose(); }} className="px-4 py-2 bg-slate-900 text-white rounded font-bold text-sm">Insert</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 2.13. KOMPONEN: SYMBOL MODAL
+// ==========================================
+function SymbolModal({ isOpen, onClose, onInsert }) {
+  if (!isOpen) return null;
+  const symbols = "★☆☺☻♡♥☎☏☑☒⚠⚡❄✈✉✎✓✔✕✖✗✘➤➥➢➣➤➔➙VX➡➢➣➤➥➦➧➨➩➪➫➬➭➮➯➱➲➳➢➣➤➥➦➧➨➩➪➫➬➭➮➯➱➲➳➝➞➟➠➡➢➣➤➥➦➧➨➩➪➫➬➭➮➯➱➲➳➵➸➺➻➼➽➾←↑→↓↔↕↖↗↘↙↚↛↜↝↞↟↠↡↢↣↤↥↦↧↨↩↪↫↬↭↮↯↰↱↲↳↴↵↶↷↸↹↺↻↼↽↾↿⇀⇁⇂⇃⇄⇅⇆⇇⇈⇊⇋⇌⇍⇎⇏⇐⇑⇒⇓⇔⇕⇖⇗⇘⇙⇚⇛⇜⇝⇞⇟⇠⇡⇢⇣⇤⇥⇦⇧⇨⇩⇪⇫⇬⇭⇮⇯ কমলা⚘⚜⚝⚛⚡⚠❤❥❦❧☀☁☂★☆☐☑☒☜☝☞☟☠☢☣☮☯☸☹☺☻☼☽☾♔♕♖♗♘♙♚♛♜♝♞♟♡♢♤♧♩♪♫♬♭♮♯©®™€£¥$¢";
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full animate-scale-up p-5">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-bold text-lg text-slate-800">Insert Special Character</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-slate-800">✕</button>
+        </div>
+        <div className="grid grid-cols-10 gap-2 max-h-[300px] overflow-y-auto p-2 bg-gray-50 rounded border border-gray-200">
+          {symbols.split('').map((char, i) => (
+            <button key={i} onClick={() => { onInsert(char); onClose(); }} className="p-2 text-lg hover:bg-emerald-100 hover:text-emerald-700 rounded transition">{char}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 2.14. KOMPONEN: IMAGE TOOLBAR (FLOATING)
+// ==========================================
+function ImageToolbar({ image, onUpdate, onDelete }) {
+  if (!image) return null;
+
+  return (
+    <div className="absolute bg-slate-900/90 text-white rounded-lg shadow-xl backdrop-blur flex items-center gap-1 p-1 z-[50]" style={{ top: image.offsetTop - 50, left: image.offsetLeft }}>
+      <button onClick={() => onUpdate({ width: '25%' })} className="px-2 py-1 text-xs font-bold hover:bg-white/20 rounded">25%</button>
+      <button onClick={() => onUpdate({ width: '50%' })} className="px-2 py-1 text-xs font-bold hover:bg-white/20 rounded">50%</button>
+      <button onClick={() => onUpdate({ width: '100%' })} className="px-2 py-1 text-xs font-bold hover:bg-white/20 rounded">100%</button>
+      <div className="w-px h-4 bg-white/20 mx-1"></div>
+      <button onClick={() => onUpdate({ style: { float: 'left', margin: '0 10px 10px 0' } })} className="p-1 hover:bg-white/20 rounded"><Icons.AlignLeft /></button>
+      <button onClick={() => onUpdate({ style: { float: 'none', display: 'block', margin: '0 auto' } })} className="p-1 hover:bg-white/20 rounded"><Icons.AlignCenter /></button>
+      <button onClick={() => onUpdate({ style: { float: 'right', margin: '0 0 10px 10px' } })} className="p-1 hover:bg-white/20 rounded"><Icons.AlignRight /></button>
+      <div className="w-px h-4 bg-white/20 mx-1"></div>
+      <button onClick={() => onUpdate({ className: 'rounded-xl shadow-lg border-4 border-white' })} className="px-2 py-1 text-xs hover:bg-white/20 rounded">Style</button>
+      <button onClick={onDelete} className="p-1 hover:bg-red-500/50 text-red-300 hover:text-white rounded ml-1">✕</button>
+    </div>
+  );
+}
+
+// ==========================================
+// 4. DATA MENU DROPDOWN (UPDATED)
 // ==========================================
 const MENU_DATA = {
-  File: ['Share', 'New', 'Open', 'Make a copy', 'Email', 'Download', 'Save to Cloud', 'Load from Cloud', 'Rename', 'Page setup', 'Print'],
+  File: ['Share', 'New', 'Open', 'Make a copy', 'Rename', 'Page setup'],
   Edit: ['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Select all', 'Find and replace'],
-  View: ['Mode', 'Toggle Details', 'Show print layout', 'Show ruler', 'Full screen'],
-  Insert: ['Image', 'Import PDF Data', 'Table', 'Horizontal line', 'Link', 'Signature', 'Special characters'],
+  View: ['Toggle Details', 'Show print layout', 'Show ruler', 'Full screen'],
+  Insert: ['Image', 'Import PDF Data', 'Table', 'Horizontal line', 'Signature', 'Special characters'], // Link removed
   Format: ['Text', 'Paragraph styles', 'Align & indent', 'Line & paragraph spacing', 'Bullets & numbering', 'Clear formatting'],
   Tools: ['Spelling and grammar', 'Word count', 'Voice typing', 'Extensions'],
   Help: ['Help', 'Report Issue']
@@ -409,6 +558,16 @@ function InvoiceViewer() {
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showPageSetup, setShowPageSetup] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+
+  // ADVANCED FEATURES STATE
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [showLineModal, setShowLineModal] = useState(false);
+  const [showSymbolModal, setShowSymbolModal] = useState(false);
+  const [signatures, setSignatures] = useState([]); // Array of {id, src, x, y, width, height}
+  const [selectedImage, setSelectedImage] = useState(null); // DOM Element ref
 
   const [pageSettings, setPageSettings] = useState({
     size: 'A4',
@@ -438,6 +597,25 @@ function InvoiceViewer() {
       }
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // Mobile Auto-Zoom and Listeners
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setZoomLevel(50);
+      }
+    };
+
+    // Initial check
+    if (window.innerWidth < 768) {
+      setZoomLevel(50);
+    }
+
+    // Optional: Add resize listener if dynamic resize is desired, 
+    // but usually initial load is enough to prevent jumping.
+    // window.addEventListener('resize', handleResize);
+    // return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -528,46 +706,51 @@ function InvoiceViewer() {
     if (category === 'File') {
       if (action === 'Share') { navigator.clipboard.writeText(window.location.href); showToast("Link Disalin", "Tautan siap dibagikan.", "success"); }
       else if (action === 'New') {
-        if (confirm("Buat baru? Data tersimpan akan dihapus.")) {
-          localStorage.removeItem('invoice_data');
-          setInvoices([{ no: "INV-NEW", customer: "Nama Client", items: [], grandTotal: "Rp 0" }]);
-          showToast("Reset", "Data lokal dihapus & Mulai baru.", "info");
-        }
+        setConfirmAction({
+          title: "Buat Dokumen Baru?",
+          message: "Perubahan yang belum disimpan mungkin hilang. Lanjutkan?",
+          action: () => {
+            setInvoices([{
+              no: "Untitled",
+              customer: "",
+              date: new Date().toLocaleDateString('id-ID'),
+              items: [{ desc: "", qty: 1, price: 0, total: 0 }],
+              grandTotal: "0",
+              email: "",
+              sender: { name: "", address: "", footer: "" }
+            }]);
+            setCurrentIndex(0);
+            showToast("Reset", "Dokumen kosong dibuat.", "info");
+          }
+        });
+        setShowConfirmModal(true);
       }
-      else if (action === 'Make a copy') { const copy = JSON.parse(JSON.stringify(currentData)); copy.no += "-COPY"; setInvoices(prev => [...prev, copy]); setCurrentIndex(invoices.length); showToast("Duplikat", "Salinan dibuat.", "success"); }
-      else if (action === 'Email') { setShowEmailModal(true); }
-      else if (action === 'Download') { handleDownloadPDF(); }
-      else if (action === 'Save to Cloud') { saveToSupabase(); }
-      else if (action === 'Load from Cloud') { loadFromSupabase(); }
-      else if (action === 'Rename') {
-        const newName = prompt("Nama Baru:", currentData.no);
-        if (newName) {
-          setInvoices(prev => prev.map((inv, idx) => idx === currentIndex ? { ...inv, no: newName } : inv));
-          showToast("Rename", "Nama diubah.", "success");
-        }
+      else if (action === 'Make a copy') {
+        const copy = JSON.parse(JSON.stringify(currentData));
+        copy.no = `Copy of ${copy.no}`;
+        setInvoices(prev => [...prev, copy]);
+        setCurrentIndex(invoices.length);
+        showToast("Duplikat", "Salinan dokumen dibuat.", "success");
       }
+      else if (action === 'Rename') { setShowRenameModal(true); }
       else if (action === 'Page setup') { setShowPageSetup(true); }
-      else if (action === 'Open') { setShowOpenModal(true); }
-      else if (action === 'Print') { window.print(); }
+      else if (action === 'Open') { loadFromSupabase(); }
     } else if (category === 'Edit') {
       const map = { 'Undo': 'undo', 'Redo': 'redo', 'Cut': 'cut', 'Copy': 'copy', 'Paste': 'paste', 'Select all': 'selectAll' };
       if (map[action]) formatText(map[action]);
       else if (action === 'Find and replace') { const term = prompt("Cari teks:"); if (term && window.find) window.find(term); }
     } else if (category === 'View') {
-      if (action === 'Mode') toggleEditMode();
-      else if (action === 'Toggle Details') setShowRightSidebar(!showRightSidebar);
+      if (action === 'Toggle Details') setShowRightSidebar(!showRightSidebar);
       else if (action === 'Show print layout') setPrintLayout(!printLayout);
       else if (action === 'Show ruler') setShowRuler(!showRuler);
-      // Removed Show Outline
       else if (action === 'Full screen') { !document.fullscreenElement ? document.documentElement.requestFullscreen() : document.exitFullscreen(); }
     } else if (category === 'Insert') {
       if (action === 'Image') document.getElementById('imgInputHidden').click();
       else if (action === 'Import PDF Data') document.getElementById('pdfInputHidden').click();
-      else if (action === 'Horizontal line') formatText('insertHorizontalRule');
-      else if (action === 'Link') { const url = prompt("Masukkan URL:"); if (url) formatText('createLink', url); }
-      else if (action === 'Table') formatText('insertHTML', '<table border="1" style="width:100%; border-collapse: collapse; margin: 10px 0;"><tr><td style="padding:5px; border:1px solid #ccc;">Cell 1</td><td style="padding:5px; border:1px solid #ccc;">Cell 2</td></tr></table>');
+      else if (action === 'Horizontal line') setShowLineModal(true);
+      else if (action === 'Table') setShowTableModal(true);
       else if (action === 'Signature') setShowSignatureModal(true);
-      else if (action === 'Special characters') formatText('insertText', '★');
+      else if (action === 'Special characters') setShowSymbolModal(true);
     } else if (category === 'Format') {
       if (action === 'Clear formatting') formatText('removeFormat');
       else if (action === 'Bold') formatText('bold');
@@ -650,51 +833,125 @@ function InvoiceViewer() {
   };
 
 
+
+
+  // --- HANDLERS FOR NEW FEATURES ---
+  const handleInsertTable = (rows, cols) => {
+    let html = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #cbd5e1;"><tbody>';
+    for (let i = 0; i < rows; i++) {
+      html += '<tr>';
+      for (let j = 0; j < cols; j++) {
+        html += '<td style="padding: 8px; border: 1px solid #cbd5e1; min-width: 50px;">&nbsp;</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table><p><br/></p>';
+    formatText('insertHTML', html);
+  };
+
+  const handleInsertLine = (width, height, color) => {
+    formatText('insertHTML', `<hr style="width:${width}; height:${height}; background-color:${color}; border:none; margin: 10px 0;" /><p><br/></p>`);
+  };
+
+  const handleInsertSymbol = (char) => formatText('insertText', char);
+
+  const handleInsertSignature = (dataUrl) => {
+    setSignatures(prev => [...prev, { id: Date.now(), src: dataUrl, x: 100, y: 100, width: 200, height: 100 }]);
+    showToast("Signature", "Tanda tangan ditambahkan. Geser untuk memindahkan.", "success");
+  };
+
+  const updateSignature = (id, updates) => {
+    setSignatures(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  // IMAGE HANDLING
+  const handleEditorClick = (e) => {
+    if (e.target.tagName === 'IMG') {
+      setSelectedImage(e.target);
+    } else {
+      setSelectedImage(null);
+    }
+  };
+
+  const updateSelectedImage = (updates) => {
+    if (!selectedImage) return;
+    if (updates.width) selectedImage.style.width = updates.width;
+    if (updates.style) Object.assign(selectedImage.style, updates.style);
+    if (updates.className) selectedImage.className = updates.className;
+    setSelectedImage(null); // Close toolbar after action
+  };
+
+  const deleteSelectedImage = () => {
+    if (selectedImage) {
+      selectedImage.remove();
+      setSelectedImage(null);
+    }
+  };
+
+
   const handleImportPDF = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    showToast("PDF Import", "Membaca data PDF...", "info");
+    showToast("PDF Import", "Membaca layout PDF...", "info");
     try {
-      const pdfjsLib = await import('pdfjs-dist/build/pdf');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
+      // Use global pdfjsLib
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       const page = await pdf.getPage(1);
+
+      // Get Text Content with Styles
       const textContent = await page.getTextContent();
-      const text = textContent.items.map(item => item.str).join(' ');
+      const viewport = page.getViewport({ scale: 1.5 }); // Scale for better visibility
 
-      // AI-Logic Sederhana (Regex)
-      const invoiceNoMatch = text.match(/(?:Invoice|No|Inv)[:\.\s]*([A-Z0-9\-\.]+)/i);
-      const dateMatch = text.match(/(?:Date|Tanggal)[:\.\s]*([\d\/\-\.]+)/i);
-      const totalMatch = text.match(/(?:Total|Grand Total|Tagihan)[:\.\s]*([Rp\$\d\.,]+)/i);
+      // Construct HTML from Text Items
+      // This maps PDF absolute coordinates to HTML absolute/relative positioning approximation
+      let htmlContent = '<div style="position: relative; width: 100%; height: 1000px;">';
 
-      // Heuristic untuk Customer: ambil baris setelah "To:" atau kata-kata umum
-      // Ini sangat basic, bisa dikembangkan lagi
-      let customer = "Unknown Customer";
-      const toIndex = text.toLowerCase().indexOf("to:");
-      if (toIndex !== -1) {
-        customer = text.substring(toIndex + 3, toIndex + 30).trim().split('  ')[0];
+      textContent.items.forEach(item => {
+        // PDF coords: (0,0) is bottom-left. We need to flip Y.
+        // item.transform = [scaleX, skewY, skewX, scaleY, x, y]
+        const tx = item.transform;
+        const x = tx[4];
+        const y = viewport.height - tx[5]; // Flip Y
+        const fontSize = Math.sqrt(tx[0] * tx[3]); // Approximate
+        const text = item.str;
+
+        // Simple heuristic: Ignore empty strings
+        if (!text.trim()) return;
+
+        htmlContent += `<div style="position: absolute; left: ${x}px; top: ${y / 2}px; font-size: ${Math.max(12, fontSize)}px; white-space: nowrap;">${text}</div>`;
+      });
+      htmlContent += '</div>';
+
+      // Fallback: If empty, use primitive scraping
+      if (textContent.items.length === 0) {
+        const text = textContent.items.map(item => item.str).join(' ');
+        htmlContent = `<p>${text}</p>`;
       }
 
-      const newData = {
-        no: invoiceNoMatch ? invoiceNoMatch[1] : `IMP-${Math.floor(Math.random() * 1000)}`,
-        date: dateMatch ? dateMatch[1] : new Date().toLocaleDateString(),
-        customer: customer,
-        email: "imported@example.com", // Sulit di-regex akurat tanpa pola spesifik
-        items: [{ desc: "Imported Data (See PDF)", qty: 1, price: totalMatch ? totalMatch[1] : "0", total: totalMatch ? totalMatch[1] : "0" }],
-        grandTotal: totalMatch ? totalMatch[1] : "0",
-        sender: {
-          name: "Perusahaan Anda",
-          address: "Jl. Bisnis Sukses No. 88, Jakarta",
-          footer: "Authorized Sign"
-        }
-      };
+      // Try to extract Invoice Metadata for the sidebar/header
+      const text = textContent.items.map(item => item.str).join(' ');
+      const invoiceNoMatch = text.match(/(?:Invoice|No)[:\.\s]*([A-Z0-9\-\.]+)/i);
+      const totalMatch = text.match(/(?:Total|Tagihan)[:\.\s]*([Rp\$\d\.,]+)/i);
 
-      setInvoices(prev => [...prev, newData]);
-      setCurrentIndex(invoices.length); // Switch ke yang baru
-      showToast("Sukses", "Data PDF berhasil di-extract.", "success");
+      setInvoices(prev => [...prev, {
+        no: invoiceNoMatch ? invoiceNoMatch[1] : `IMP-${Math.floor(Math.random() * 1000)}`,
+        date: new Date().toLocaleDateString(),
+        customer: "Imported PDF",
+        items: [{ desc: "Imported PDF Content (Editable)", qty: 1, price: 0, total: totalMatch ? totalMatch[1] : "0" }],
+        grandTotal: totalMatch ? totalMatch[1] : "0",
+        // Inject HTML into a special field or just overwrite the content if we move to full HTML storage
+        // For now, we simulate "Imported" by resetting logic but here we are in "Editor"
+      }]);
+
+      // Inject content directly into editor
+      if (invoiceRef.current) {
+        invoiceRef.current.innerHTML = htmlContent;
+      }
+
+      setCurrentIndex(invoices.length);
+      showToast("Sukses", "Layout PDF di-import.", "success");
     } catch (err) {
       console.error(err);
       showToast("Error", "Gagal membaca PDF.", "error");
@@ -751,36 +1008,52 @@ function InvoiceViewer() {
       <WordCountModal isOpen={showWordCount} onClose={() => setShowWordCount(false)} textRef={invoiceRef} />
       <OpenDocumentModal isOpen={showOpenModal} onClose={() => setShowOpenModal(false)} invoices={invoices} onSelect={(idx) => { setCurrentIndex(idx); setShowOpenModal(false); showToast("Loaded", `Dokumen #${invoices[idx]?.no} dibuka.`, "success"); }} />
       <PageSetupModal isOpen={showPageSetup} onClose={() => setShowPageSetup(false)} settings={pageSettings} onSave={(s) => { setPageSettings(s); showToast("Page Setup", "Pengaturan disimpan.", "success"); }} />
-      <SignatureModal isOpen={showSignatureModal} onClose={() => setShowSignatureModal(false)} onInsert={(dataUrl) => { formatText('insertImage', dataUrl); showToast("Signature", "Tanda tangan disisipkan.", "success"); }} />
+      <SignatureModal isOpen={showSignatureModal} onClose={() => setShowSignatureModal(false)} onInsert={handleInsertSignature} />
+      <TableModal isOpen={showTableModal} onClose={() => setShowTableModal(false)} onInsert={handleInsertTable} />
+      <LineModal isOpen={showLineModal} onClose={() => setShowLineModal(false)} onInsert={handleInsertLine} />
+      <SymbolModal isOpen={showSymbolModal} onClose={() => setShowSymbolModal(false)} onInsert={handleInsertSymbol} />
+      <RenameModal isOpen={showRenameModal} onClose={() => setShowRenameModal(false)} currentName={currentData.no} onRename={(newName) => { setInvoices(prev => prev.map((inv, idx) => idx === currentIndex ? { ...inv, no: newName } : inv)); showToast("Rename", "Dokumen dinamai ulang.", "success"); }} />
+      <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} title={confirmAction?.title} message={confirmAction?.message} onConfirm={confirmAction?.action} />
       <input type="file" id="imgInputHidden" hidden onChange={handleImageChange} />
       <input type="file" id="pdfInputHidden" hidden accept=".pdf" onChange={handleImportPDF} />
 
       {/* NAVBAR */}
       <nav className="w-full bg-[#1A1A1A] text-white px-4 py-2 flex justify-between items-center sticky top-0 z-[100] border-b border-gray-700 h-14">
-        <div className="flex items-center gap-4"><div className="w-9 h-9 bg-emerald-600 rounded flex items-center justify-center text-white shadow-lg"><Icons.Logo /></div><div><h1 className="font-bold text-base leading-tight tracking-wide">SHEET WORKER TOOLS</h1><p className="text-[10px] text-gray-400 uppercase tracking-widest">Empowering Productivity</p></div></div>
-
-        {/* MULTI DOCUMENT NAVIGATION */}
-        {invoices.length > 1 && (
-          <div className="hidden md:flex items-center bg-gray-800 rounded px-2 py-1 gap-2 border border-gray-600">
-            <button onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))} disabled={currentIndex === 0} className="text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <span className="text-xs font-mono text-gray-300 w-12 text-center">{currentIndex + 1} / {invoices.length}</span>
-            <button onClick={() => setCurrentIndex(prev => Math.min(invoices.length - 1, prev + 1))} disabled={currentIndex === invoices.length - 1} className="text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
+        <div className="flex items-center gap-4">
+          <div className="w-9 h-9 bg-emerald-600 rounded flex items-center justify-center text-white shadow-lg"><Icons.Logo /></div>
+          <div>
+            <h1 className="font-bold text-base leading-tight tracking-wide hidden md:block">SHEET WORKER TOOLS</h1>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-400 uppercase tracking-widest hidden md:inline">Empowering Productivity</span>
+              <span className="text-[10px] text-gray-500 hidden md:inline">•</span>
+              <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest max-w-[150px] md:max-w-[200px] truncate" title={currentData?.no}>{currentData?.no || "Untitled"}</span>
+            </div>
           </div>
-        )}
+        </div>
 
-        <div className="flex gap-2">
-          <button onClick={toggleEditMode} className={`px-4 py-1.5 rounded text-xs font-bold transition border uppercase tracking-wider ${isEditing ? "bg-yellow-500 text-black border-yellow-500 hover:bg-yellow-400" : "bg-transparent border-gray-600 text-gray-300 hover:border-white"}`}>{isEditing ? "Done Editing" : "Edit Document"}</button>
-          <button onClick={() => setShowEmailModal(true)} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition shadow-lg">Email</button>
-          <button onClick={handleDownloadPDF} className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition shadow-lg">Download PDF</button>
+        {/* ACTION BUTTONS (5 BUTTONS) */}
+        {/* ACTION BUTTONS (5 BUTTONS) - Scrollable on mobile */}
+        <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-[200px] md:max-w-none">
+          <button onClick={() => window.print()} className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-bold transition shadow-lg border border-slate-600">
+            <Icons.Print /> <span className="hidden md:inline">Print</span>
+          </button>
+          <button onClick={() => setShowEmailModal(true)} className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 bg-blue-700 hover:bg-blue-600 text-white rounded text-xs font-bold transition shadow-lg border border-blue-600">
+            <Icons.Email /> <span className="hidden md:inline">Email</span>
+          </button>
+          <button onClick={handleDownloadPDF} className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded text-xs font-bold transition shadow-lg border border-emerald-600">
+            <Icons.Pdf /> PDF
+          </button>
+          <button onClick={toggleEditMode} className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold transition border shadow-lg ${isEditing ? "bg-yellow-500 text-slate-900 border-yellow-500 hover:bg-yellow-400" : "bg-slate-700 text-white border-slate-600 hover:bg-slate-600"}`}>
+            <Icons.Edit /> {isEditing ? "Finish" : "Edit"}
+          </button>
+          <button onClick={saveToSupabase} className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white rounded text-xs font-bold transition shadow-lg border border-indigo-600">
+            <Icons.Save /> <span className="hidden md:inline">Simpan</span>
+          </button>
         </div>
       </nav>
 
       {/* MENU BAR */}
-      <div className="w-full bg-white border-b border-gray-300 px-4 flex items-center gap-1 text-[13px] text-slate-700 select-none sticky top-14 z-[90] h-9 shadow-sm">
+      <div className="w-full bg-white border-b border-gray-300 px-4 flex items-center gap-1 text-[13px] text-slate-700 select-none sticky top-14 z-[90] h-9 shadow-sm overflow-x-auto no-scrollbar">
         {Object.keys(MENU_DATA).map((menuName) => (
           <div key={menuName} className="relative h-full flex items-center">
             <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === menuName ? null : menuName); }} className={`px-3 py-1 rounded hover:bg-gray-100 transition ${activeMenu === menuName ? "bg-gray-200" : ""}`}>{menuName}</button>
@@ -837,8 +1110,11 @@ function InvoiceViewer() {
         <div className="w-px h-5 bg-gray-300 mx-2"></div>
 
         {/* 4. Insert */}
-        <button onMouseDown={preventFocusLoss} onClick={() => { const url = prompt("Masukkan Link:"); if (url) formatText('createLink', url); }} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Link"><Icons.Link /></button>
+        {/* 4. Insert */}
         <button onMouseDown={preventFocusLoss} onClick={() => document.getElementById('imgInputHidden').click()} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Image"><Icons.Image /></button>
+        <button onMouseDown={preventFocusLoss} onClick={() => setShowTableModal(true)} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Table">T</button>
+        <button onMouseDown={preventFocusLoss} onClick={() => setShowLineModal(true)} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Line">--</button>
+        <button onMouseDown={preventFocusLoss} onClick={() => setShowSymbolModal(true)} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Symbol">Ω</button>
 
         <div className="w-px h-5 bg-gray-300 mx-2"></div>
 
@@ -873,7 +1149,7 @@ function InvoiceViewer() {
             {showRuler && printLayout && <div className="w-[210mm] h-6 bg-white border-b border-gray-300 mb-2 flex items-end text-[8px] text-gray-400 select-none">{[...Array(20)].map((_, i) => <div key={i} className="flex-1 border-r border-gray-300 h-2 flex justify-end pr-1">{i + 1}</div>)}</div>}
 
             <div ref={invoiceRef} contentEditable={isEditing} spellCheck={spellCheck} suppressContentEditableWarning={true}
-              onMouseUp={applyPaintFormat}
+              onMouseUp={applyPaintFormat} onClick={handleEditorClick}
               style={{
                 width: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '210mm' : '297mm') : (pageSettings.orientation === 'portrait' ? '215.9mm' : '279.4mm'),
                 minHeight: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '297mm' : '210mm') : (pageSettings.orientation === 'portrait' ? '279.4mm' : '215.9mm'),
@@ -925,6 +1201,95 @@ function InvoiceViewer() {
               </div>
               <div className="mt-12 text-center text-[9px] text-slate-300 uppercase tracking-widest">System Generated Document by Sheet Worker Tools</div>
             </div>
+
+            {/* SIGNATURE OVERLAY */}
+            {signatures.map(sig => (
+              <div key={sig.id}
+                style={{ position: 'absolute', left: sig.x, top: sig.y, width: sig.width, height: sig.height, cursor: isEditing ? 'move' : 'default', border: isEditing ? '1px dashed #cbd5e1' : 'none', zIndex: 10, touchAction: 'none' }}
+                onMouseDown={(e) => {
+                  if (!isEditing) return;
+                  e.preventDefault();
+                  const startX = e.clientX;
+                  const startY = e.clientY;
+                  const startLeft = sig.x;
+                  const startTop = sig.y;
+
+                  const onMove = (mv) => {
+                    updateSignature(sig.id, { x: startLeft + (mv.clientX - startX), y: startTop + (mv.clientY - startY) });
+                  };
+                  const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                  };
+                  document.addEventListener('mousemove', onMove);
+                  document.addEventListener('mouseup', onUp);
+                }}
+                onTouchStart={(e) => {
+                  if (!isEditing) return;
+                  const touch = e.touches[0];
+                  const startX = touch.clientX;
+                  const startY = touch.clientY;
+                  const startLeft = sig.x;
+                  const startTop = sig.y;
+
+                  const onTouchMove = (mv) => {
+                    const t = mv.touches[0];
+                    updateSignature(sig.id, { x: startLeft + (t.clientX - startX), y: startTop + (t.clientY - startY) });
+                  };
+                  const onTouchEnd = () => {
+                    document.removeEventListener('touchmove', onTouchMove);
+                    document.removeEventListener('touchend', onTouchEnd);
+                  };
+                  document.addEventListener('touchmove', onTouchMove, { passive: false });
+                  document.addEventListener('touchend', onTouchEnd);
+                }}
+              >
+                <img src={sig.src} className="w-full h-full object-contain pointer-events-none" />
+                {isEditing && <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 cursor-nwse-resize"
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const startX = e.clientX;
+                    const startW = sig.width;
+                    const startH = sig.height;
+                    const aspect = startW / startH;
+
+                    const onMove = (mv) => {
+                      const newW = Math.max(50, startW + (mv.clientX - startX));
+                      updateSignature(sig.id, { width: newW, height: newW / aspect });
+                    };
+                    const onUp = () => {
+                      document.removeEventListener('mousemove', onMove);
+                      document.removeEventListener('mouseup', onUp);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    const touch = e.touches[0];
+                    const startX = touch.clientX;
+                    const startW = sig.width;
+                    const startH = sig.height;
+                    const aspect = startW / startH;
+
+                    const onTouchMove = (mv) => {
+                      const t = mv.touches[0];
+                      const newW = Math.max(50, startW + (t.clientX - startX));
+                      updateSignature(sig.id, { width: newW, height: newW / aspect });
+                    };
+                    const onTouchEnd = () => {
+                      document.removeEventListener('touchmove', onTouchMove);
+                      document.removeEventListener('touchend', onTouchEnd);
+                    };
+                    document.addEventListener('touchmove', onTouchMove, { passive: false });
+                    document.addEventListener('touchend', onTouchEnd);
+                  }}
+                />}
+              </div>
+            ))}
+
+            <ImageToolbar image={selectedImage} onUpdate={updateSelectedImage} onDelete={deleteSelectedImage} />
           </div>
         </div>
 
@@ -1014,6 +1379,10 @@ const Icons = {
   IndentDecrease: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11 17h10v-2H11v2zm-8-5l4 4V8l-4 4zm0 9h18v-2H3v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z" /></svg>,
   IndentIncrease: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z" /></svg>,
   ClearFormat: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3.27 5L2 6.27l6.97 6.97L6.5 19h3l1.57-3.66L16.73 21 18 19.73 3.55 5.27 3.27 5zM6 5v.18L8.82 8h2.4l-.72 1.68 2.1 2.1L14.21 8H20V5H6z" /></svg>,
+  Save: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" /></svg>,
+  Email: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" /></svg>,
+  Pdf: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v2.5zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5v1.5H19v2.5h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z" /></svg>,
+  Edit: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" /></svg>,
 };
 
 export default function Page() {

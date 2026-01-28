@@ -1,26 +1,73 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+body {
+  background-color: #f3f4f6;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@media print {
+  @page {
+    margin: 0;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    background-color: white;
+  }
+
+  nav,
+  .sticky,
+  button,
+  select,
+  .fixed,
+  .border-b,
+  .sidebar,
+  .outline-none>div:first-child {
+    display: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset Workspace for Print */
+  div[contenteditable="true"],
+  div[contenteditable="false"] {
+    width: 100% !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Restore List Styles for Editor */
+.editor-canvas ul {
+  list-style-type: disc !important;
+  padding-left: 1.5rem !important;
+  margin-bottom: 1rem;
+}
+
+.editor-canvas ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5rem !important;
+  margin-bottom: 1rem;
+}
+
+.editor-canvas ul li,
+.editor-canvas ol li {
+  margin-bottom: 0.25rem;
+}
+
+/* Checklist Style simulation */
+.editor-canvas ul[data-type="checklist"] {
+  list-style-type: none !important;
+}
+
+.editor-canvas ul[data-type="checklist"] li:before {
+  content: '☐ ';
+  margin-right: 0.5rem;
+  font-weight: bold;
 }

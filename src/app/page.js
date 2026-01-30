@@ -5,12 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import html2canvas from 'html2canvas';
 
 import jsPDF from 'jspdf';
-import * as pdfjsLib from 'pdfjs-dist';
-import { supabase } from '../lib/supabaseClient';
 
-if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-}
+import { supabase } from '../lib/supabaseClient';
+// pdfjs-dist removed from top-level to prevent SSR DOMMatrix error
 
 // ==========================================
 // 1. KOMPONEN: TOAST NOTIFICATION (PROFESIONAL)
@@ -102,9 +99,22 @@ function WordCountModal({ isOpen, onClose, textRef }) {
 
   const getText = () => {
     if (!textRef.current) return { words: 0, chars: 0 };
-    const text = textRef.current.innerText || "";
-    const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
-    return { words, chars: text.length };
+
+    let totalWords = 0;
+    let totalChars = 0;
+
+    // Handle array of refs (multi-page) or single ref
+    const refs = Array.isArray(textRef.current) ? textRef.current : [textRef.current];
+
+    refs.forEach(ref => {
+      if (!ref) return;
+      const text = ref.innerText || "";
+      const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+      totalWords += words;
+      totalChars += text.length;
+    });
+
+    return { words: totalWords, chars: totalChars };
   };
 
   const { words, chars } = getText();
@@ -529,7 +539,7 @@ const MENU_DATA = {
   Edit: ['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Select all', 'Find and replace'],
   View: ['Toggle Details', 'Show print layout', 'Show ruler', 'Full screen'],
   Insert: ['Image', 'Import PDF Data', 'Table', 'Horizontal line', 'Signature', 'Special characters'], // Link removed
-  Format: ['Text', 'Paragraph styles', 'Align & indent', 'Line & paragraph spacing', 'Bullets & numbering', 'Clear formatting'],
+  Format: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'Superscript', 'Subscript', 'Clear formatting', 'Align Left', 'Align Center', 'Align Right', 'Justify'],
   Tools: ['Spelling and grammar', 'Word count', 'Voice typing', 'Extensions'],
   Help: ['Help', 'Report Issue']
 };
@@ -584,17 +594,53 @@ function InvoiceViewer() {
   // EDITOR STATE
   const [fontName, setFontName] = useState("Arial");
   const [fontSize, setFontSize] = useState("3");
-  const [paintFormat, setPaintFormat] = useState(null); // { bold, italic, underline, fontName, fontSize, color, hilite }
-  const invoiceRef = useRef();
+  const [paintFormat, setPaintFormat] = useState(null);
+  const pageRefs = useRef([]); // CHANGED: Array of refs for multiple pages
+  const pendingFocus = useRef(null); // To track if we need to focus next page
+
+  // HANDLE FOCUS AFTER PAGE CREATION
+  useEffect(() => {
+    if (pendingFocus.current !== null) {
+      // Support object { index: 1, atEnd: true } or just number
+      const focusData = typeof pendingFocus.current === 'object' ? pendingFocus.current : { index: pendingFocus.current, atEnd: false };
+      const pageIdx = focusData.index;
+
+      const pageEl = pageRefs.current[pageIdx];
+      if (pageEl) {
+        // Focus logic
+        const range = document.createRange();
+        const sel = window.getSelection();
+
+        if (focusData.atEnd) {
+          range.selectNodeContents(pageEl);
+          range.collapse(false); // End
+        } else {
+          range.setStart(pageEl, 0);
+          range.collapse(true); // Start
+        }
+
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      pendingFocus.current = null;
+    }
+  }, [invoices]); // Run after render updates
 
   // REAL-TIME DOC STATS
   useEffect(() => {
     const interval = setInterval(() => {
-      if (invoiceRef.current) {
-        const text = invoiceRef.current.innerText || "";
-        const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
-        setDocStats({ words, chars: text.length });
-      }
+      let totalWords = 0;
+      let totalChars = 0;
+
+      pageRefs.current.forEach(ref => {
+        if (ref) {
+          const text = ref.innerText || "";
+          const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+          totalWords += words;
+          totalChars += text.length;
+        }
+      });
+      setDocStats({ words: totalWords, chars: totalChars });
     }, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -651,7 +697,22 @@ function InvoiceViewer() {
     }
   }, [invoices, isLoading]);
 
+  // SYNC CONTENT ON INDEX CHANGE
+  useEffect(() => {
+    if (invoices[currentIndex]) {
+      const content = invoices[currentIndex].content;
+      const pages = Array.isArray(content) ? content : [content || ""];
+
+      pages.forEach((html, idx) => {
+        if (pageRefs.current[idx] && pageRefs.current[idx].innerHTML !== html) {
+          pageRefs.current[idx].innerHTML = html;
+        }
+      });
+    }
+  }, [currentIndex, invoices]);
+
   const currentData = invoices[currentIndex] || { no: "", customer: "", date: "", items: [], grandTotal: "0", email: "" };
+  const currentPages = Array.isArray(currentData.content) ? currentData.content : [currentData.content || ""];
 
   const showToast = (title, message, type = 'success') => {
     setNotification({ title, message, type });
@@ -712,12 +773,9 @@ function InvoiceViewer() {
           action: () => {
             setInvoices([{
               no: "Untitled",
-              customer: "",
+              content: "",
               date: new Date().toLocaleDateString('id-ID'),
-              items: [{ desc: "", qty: 1, price: 0, total: 0 }],
-              grandTotal: "0",
-              email: "",
-              sender: { name: "", address: "", footer: "" }
+              email: ""
             }]);
             setCurrentIndex(0);
             showToast("Reset", "Dokumen kosong dibuat.", "info");
@@ -759,7 +817,10 @@ function InvoiceViewer() {
       else if (action === 'Strikethrough') formatText('strikeThrough');
       else if (action === 'Superscript') formatText('superscript');
       else if (action === 'Subscript') formatText('subscript');
-      else if (action === 'Align & indent') showToast("Info", "Gunakan toolbar untuk alignment.", "info");
+      else if (action === 'Align Left') formatText('justifyLeft');
+      else if (action === 'Align Center') formatText('justifyCenter');
+      else if (action === 'Align Right') formatText('justifyRight');
+      else if (action === 'Justify') formatText('justifyFull');
     } else if (category === 'Tools') {
       if (action === 'Word count') setShowWordCount(true);
       else if (action === 'Spelling and grammar') { setSpellCheck(!spellCheck); showToast("Spell Check", !spellCheck ? "Aktif" : "Non-aktif", "info"); }
@@ -895,7 +956,10 @@ function InvoiceViewer() {
 
     showToast("PDF Import", "Membaca layout PDF...", "info");
     try {
-      // Use global pdfjsLib
+      // Dynamic import to avoid SSR issues
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       const page = await pdf.getPage(1);
@@ -965,14 +1029,27 @@ function InvoiceViewer() {
     setZoomLevel(100);
     showToast("PDF", "Memproses...", "info");
     setTimeout(async () => {
-      if (!invoiceRef.current) return;
+      if (pageRefs.current.length === 0) return;
       try {
-        const canvas = await html2canvas(invoiceRef.current, { scale: 2 });
-        const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        for (let i = 0; i < pageRefs.current.length; i++) {
+          const pageRef = pageRefs.current[i];
+          if (!pageRef) continue;
+
+          if (i > 0) pdf.addPage();
+
+          const canvas = await html2canvas(pageRef, { scale: 2, useCORS: true });
+          const imgData = canvas.toDataURL('image/png');
+          const imgProps = pdf.getImageProperties(imgData);
+          const ratio = imgProps.width / imgProps.height;
+          const height = pdfWidth / ratio;
+
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, height);
+        }
+
         pdf.save(`Invoice-${currentData?.no}.pdf`);
         showToast("Selesai", "PDF tersimpan.", "success");
       } catch (e) {
@@ -1005,7 +1082,7 @@ function InvoiceViewer() {
       {isLoading && <div className="fixed inset-0 bg-white/95 z-[9999] flex flex-col items-center justify-center"><div className="w-12 h-12 border-4 border-slate-800 border-t-transparent rounded-full animate-spin mb-4"></div><p>Loading...</p></div>}
       <NotificationToast notif={notification} onClose={() => setNotification(null)} />
       <EmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} data={currentData} onSend={() => showToast("Terkirim", "Email sukses.", "success")} />
-      <WordCountModal isOpen={showWordCount} onClose={() => setShowWordCount(false)} textRef={invoiceRef} />
+      <WordCountModal isOpen={showWordCount} onClose={() => setShowWordCount(false)} textRef={pageRefs} />
       <OpenDocumentModal isOpen={showOpenModal} onClose={() => setShowOpenModal(false)} invoices={invoices} onSelect={(idx) => { setCurrentIndex(idx); setShowOpenModal(false); showToast("Loaded", `Dokumen #${invoices[idx]?.no} dibuka.`, "success"); }} />
       <PageSetupModal isOpen={showPageSetup} onClose={() => setShowPageSetup(false)} settings={pageSettings} onSave={(s) => { setPageSettings(s); showToast("Page Setup", "Pengaturan disimpan.", "success"); }} />
       <SignatureModal isOpen={showSignatureModal} onClose={() => setShowSignatureModal(false)} onInsert={handleInsertSignature} />
@@ -1053,7 +1130,8 @@ function InvoiceViewer() {
       </nav>
 
       {/* MENU BAR */}
-      <div className="w-full bg-white border-b border-gray-300 px-4 flex items-center gap-1 text-[13px] text-slate-700 select-none sticky top-14 z-[90] h-9 shadow-sm overflow-x-auto no-scrollbar">
+      {/* MENU BAR */}
+      <div className="w-full bg-white border-b border-gray-300 px-4 flex items-center gap-1 text-[13px] text-slate-700 select-none sticky top-14 z-[120] h-9 shadow-sm">
         {Object.keys(MENU_DATA).map((menuName) => (
           <div key={menuName} className="relative h-full flex items-center">
             <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === menuName ? null : menuName); }} className={`px-3 py-1 rounded hover:bg-gray-100 transition ${activeMenu === menuName ? "bg-gray-200" : ""}`}>{menuName}</button>
@@ -1145,156 +1223,251 @@ function InvoiceViewer() {
       {/* WORKSPACE */}
       <div className="flex w-full flex-1 overflow-hidden h-full relative">
         <div className={`flex-1 overflow-auto flex justify-center p-8 pb-32 ${printLayout ? 'bg-[#EDF0F2]' : 'bg-white'}`}>
-          <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }} className="transition-transform duration-200 h-max">
-            {showRuler && printLayout && <div className="w-[210mm] h-6 bg-white border-b border-gray-300 mb-2 flex items-end text-[8px] text-gray-400 select-none">{[...Array(20)].map((_, i) => <div key={i} className="flex-1 border-r border-gray-300 h-2 flex justify-end pr-1">{i + 1}</div>)}</div>}
+          <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }} className="transition-transform duration-200 h-max flex flex-col items-center gap-8">
 
-            <div ref={invoiceRef} contentEditable={isEditing} spellCheck={spellCheck} suppressContentEditableWarning={true}
-              onMouseUp={applyPaintFormat} onClick={handleEditorClick}
-              style={{
-                width: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '210mm' : '297mm') : (pageSettings.orientation === 'portrait' ? '215.9mm' : '279.4mm'),
-                minHeight: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '297mm' : '210mm') : (pageSettings.orientation === 'portrait' ? '279.4mm' : '215.9mm'),
-                paddingTop: `${pageSettings.marginTop}mm`, paddingBottom: `${pageSettings.marginBottom}mm`, paddingLeft: `${pageSettings.marginLeft}mm`, paddingRight: `${pageSettings.marginRight}mm`
-              }}
-              className={`bg-white ${printLayout ? 'shadow-2xl' : ''} editor-canvas flex flex-col ${isEditing ? "outline-none ring-2 ring-emerald-500/50" : "outline-none"}`}>
-              <div className="flex-grow">
-                {/* Header Dinamis */}
-                <div className="flex justify-between items-start mb-10 border-b-2 border-slate-900 pb-6">
-                  <div>
-                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">INVOICE</h1>
-                    <p className="text-slate-500 mt-1 font-medium">#{currentData.no}</p>
-                  </div>
-                  {currentData.sender ? (
-                    <div className="text-right">
-                      <h2 className="text-xl font-bold uppercase text-slate-900">{currentData.sender.name}</h2>
-                      <p className="text-slate-500 text-xs mt-1 leading-relaxed whitespace-pre-line">{currentData.sender.address}</p>
-                    </div>
-                  ) : (
-                    // Blank Default jika tidak ada data sender
-                    <div className="text-right opacity-0 hover:opacity-100 transition duration-300 border border-dashed border-gray-300 p-2 rounded">
-                      <span className="text-xs text-gray-400">[Company Info Hidden]</span>
-                    </div>
-                  )}
+            {currentPages.map((pageHtml, pageIndex) => (
+              <div key={pageIndex} className="relative group">
+                {/* Page Indicator */}
+                <div className="absolute top-2 -left-12 text-xs text-gray-400 font-bold select-none opacity-0 group-hover:opacity-100 transition">
+                  Page {pageIndex + 1}
                 </div>
 
-                <div className="flex justify-between mb-10"><div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Ditujukan Kepada:</p><h3 className="text-lg font-bold text-slate-800">{currentData.customer}</h3><p className="text-slate-600 text-sm">{currentData.email}</p></div><div className="text-right"><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Tanggal:</p><p className="font-semibold text-slate-800">{currentData.date}</p></div></div>
-                <table className="w-full mb-10 border-collapse"><thead><tr className="border-b border-slate-300"><th className="py-2 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Deskripsi</th><th className="py-2 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Qty</th><th className="py-2 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Harga</th><th className="py-2 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th></tr></thead><tbody className="text-sm text-slate-700">{currentData.items && currentData.items.map((item, i) => (<tr key={i} className="border-b border-slate-100"><td className="py-4 font-medium">{item.desc}</td><td className="py-4 text-center">{item.qty}</td><td className="py-4 text-right">{item.price}</td><td className="py-4 text-right font-bold text-slate-900">{item.total}</td></tr>))}</tbody></table>
-                <div className="flex justify-end mt-4"><div className="text-right"><p className="text-xs text-slate-500 mb-1">Total Tagihan</p><p className="text-3xl font-extrabold text-black">{currentData.grandTotal}</p></div></div>
-                <div className="mt-32"></div>
+                {showRuler && printLayout && pageIndex === 0 && (
+                  <div className="absolute -top-8 left-0 w-full h-6 bg-transparent border-b border-gray-300 flex items-end text-[8px] text-gray-400 select-none">
+                    {[...Array(20)].map((_, i) => <div key={i} className="flex-1 border-r border-gray-300 h-2 flex justify-end pr-1">{i + 1}</div>)}
+                  </div>
+                )}
 
-                {/* Footer Dinamis */}
-                <div className="pt-6 border-t border-slate-200 flex justify-between items-end break-inside-avoid">
-                  <div className="text-xs text-slate-500 w-1/2">
-                    {currentData.notes ? (
-                      <>
-                        <p className="font-bold text-slate-700 mb-2">Catatan:</p>
-                        <p className="whitespace-pre-line">{currentData.notes}</p>
-                      </>
-                    ) : (
-                      <p className="italic text-gray-300">[No Notes]</p>
-                    )}
-                  </div>
-                  <div className="text-right min-w-[220px]">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-24">{currentData.sender?.footer || "Authorized Sign"}</p>
-                    <div className="border-t border-slate-400 pt-2 px-4 w-full"><p className="text-sm font-bold text-slate-900">{currentData.sender?.dept || "Finance Dept"}</p></div>
-                  </div>
+                <div
+                  style={{
+                    width: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '210mm' : '297mm') : (pageSettings.orientation === 'portrait' ? '215.9mm' : '279.4mm'),
+                    height: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '297mm' : '210mm') : (pageSettings.orientation === 'portrait' ? '279.4mm' : '215.9mm'),
+                    paddingTop: `${pageSettings.marginTop}mm`, paddingBottom: `${pageSettings.marginBottom}mm`, paddingLeft: `${pageSettings.marginLeft}mm`, paddingRight: `${pageSettings.marginRight}mm`
+                  }}
+                  className={`bg-white ${printLayout ? 'shadow-2xl' : ''} editor-canvas flex flex-col ${isEditing ? "outline-none ring-2 ring-emerald-500/50" : "outline-none"}`}
+                >
+                  <div
+                    ref={el => pageRefs.current[pageIndex] = el}
+                    contentEditable={isEditing}
+                    spellCheck={spellCheck}
+                    suppressContentEditableWarning={true}
+                    onMouseUp={applyPaintFormat}
+                    onClick={handleEditorClick}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace') {
+                        const sel = window.getSelection();
+                        // Simple check: is cursor at start?
+                        // We check if we are at offset 0 of the first node or the container itself
+                        // This is a naive check but works for many cases
+                        let atStart = false;
+                        if (sel.rangeCount > 0) {
+                          const range = sel.getRangeAt(0);
+                          const preRange = range.cloneRange();
+                          preRange.selectNodeContents(e.currentTarget);
+                          preRange.setEnd(range.startContainer, range.startOffset);
+                          if (preRange.toString().length === 0) atStart = true;
+                        }
+
+                        if (atStart && pageIndex > 0) {
+                          // Move to previous page
+                          e.preventDefault();
+                          const isEmpty = e.currentTarget.innerText.trim() === "";
+
+                          setInvoices(prev => {
+                            const newState = [...prev];
+                            const pages = [...(Array.isArray(newState[currentIndex].content) ? newState[currentIndex].content : [newState[currentIndex].content || ""])];
+
+                            if (isEmpty) {
+                              pages.splice(pageIndex, 1);
+                              pendingFocus.current = { index: pageIndex - 1, atEnd: true };
+                              showToast("Hapus Halaman", "Halaman kosong dihapus.", "info");
+                            } else {
+                              pendingFocus.current = { index: pageIndex - 1, atEnd: true };
+                            }
+
+                            newState[currentIndex] = { ...newState[currentIndex], content: pages };
+                            return newState;
+                          });
+                        }
+                      }
+                    }}
+                    className="flex-grow outline-none overflow-hidden"
+                    onInput={(e) => {
+                      const target = e.currentTarget;
+
+                      // LOGIKA FLOW CONTENT OTOMATIS
+                      // Jika konten melebihi tinggi halaman, pindahkan elemen terakhir ke halaman berikutnya
+                      // Loop cek overflow
+                      let overflowMoved = false;
+                      let nodesToMove = [];
+
+                      // Kita gunakan toleransi 5px
+                      while (target.scrollHeight - target.clientHeight > 5) {
+                        const lastNode = target.lastChild;
+                        if (!lastNode) break;
+
+                        // Mencegah infinite loop jika satu komponen terlalu besar
+                        if (target.childNodes.length === 1 && nodesToMove.length === 0) break;
+
+                        // Ambil HTML/Text node
+                        let nodeHtml = "";
+                        if (lastNode.nodeType === Node.TEXT_NODE) {
+                          nodeHtml = lastNode.textContent;
+                        } else {
+                          nodeHtml = lastNode.outerHTML;
+                        }
+
+                        nodesToMove.unshift(nodeHtml);
+                        lastNode.remove();
+                        overflowMoved = true;
+                      }
+
+                      // Update State dengan data baru
+                      const currentHtml = target.innerHTML;
+
+                      setInvoices(prev => {
+                        const newState = [...prev];
+                        if (newState[currentIndex]) {
+                          const pages = [...(Array.isArray(newState[currentIndex].content) ? newState[currentIndex].content : [newState[currentIndex].content || ""])];
+
+                          // 1. Update halaman saat ini (yg sudah terpotong)
+                          pages[pageIndex] = currentHtml;
+
+                          // 2. Jika ada overflow, pindahkan ke halaman berikutnya
+                          if (nodesToMove.length > 0) {
+                            const moveContent = nodesToMove.join("");
+                            if (pageIndex + 1 < pages.length) {
+                              // Prepend ke halaman existing
+                              pages[pageIndex + 1] = moveContent + pages[pageIndex + 1];
+                            } else {
+                              // Buat halaman baru
+                              pages.push(moveContent);
+                              showToast("Auto-Page", "Konten lanjut ke halaman baru.", "info");
+                            }
+                            // SET FOCUS KE HALAMAN BERIKUTNYA
+                            pendingFocus.current = pageIndex + 1;
+                          }
+
+                          newState[currentIndex] = { ...newState[currentIndex], content: pages };
+                        }
+                        return newState;
+                      });
+                    }}
+                  ></div>
+                  {/* Footer Text */}
+                  <div className="mt-auto pt-4 text-center text-[9px] text-slate-300 uppercase tracking-widest select-none">Sheet Worker Tools • Page {pageIndex + 1}</div>
                 </div>
-              </div>
-              <div className="mt-12 text-center text-[9px] text-slate-300 uppercase tracking-widest">System Generated Document by Sheet Worker Tools</div>
-            </div>
 
-            {/* SIGNATURE OVERLAY */}
-            {signatures.map(sig => (
-              <div key={sig.id}
-                style={{ position: 'absolute', left: sig.x, top: sig.y, width: sig.width, height: sig.height, cursor: isEditing ? 'move' : 'default', border: isEditing ? '1px dashed #cbd5e1' : 'none', zIndex: 10, touchAction: 'none' }}
-                onMouseDown={(e) => {
-                  if (!isEditing) return;
-                  e.preventDefault();
-                  const startX = e.clientX;
-                  const startY = e.clientY;
-                  const startLeft = sig.x;
-                  const startTop = sig.y;
+                {/* Signatures on First Page Only */}
+                {pageIndex === 0 && signatures.map(sig => (
+                  <div key={sig.id}
+                    style={{ position: 'absolute', left: sig.x, top: sig.y, width: sig.width, height: sig.height, cursor: isEditing ? 'move' : 'default', border: isEditing ? '1px dashed #cbd5e1' : 'none', zIndex: 10, touchAction: 'none' }}
+                    onMouseDown={(e) => {
+                      if (!isEditing) return;
+                      e.preventDefault();
+                      const startX = e.clientX;
+                      const startY = e.clientY;
+                      const startLeft = sig.x;
+                      const startTop = sig.y;
 
-                  const onMove = (mv) => {
-                    updateSignature(sig.id, { x: startLeft + (mv.clientX - startX), y: startTop + (mv.clientY - startY) });
-                  };
-                  const onUp = () => {
-                    document.removeEventListener('mousemove', onMove);
-                    document.removeEventListener('mouseup', onUp);
-                  };
-                  document.addEventListener('mousemove', onMove);
-                  document.addEventListener('mouseup', onUp);
-                }}
-                onTouchStart={(e) => {
-                  if (!isEditing) return;
-                  const touch = e.touches[0];
-                  const startX = touch.clientX;
-                  const startY = touch.clientY;
-                  const startLeft = sig.x;
-                  const startTop = sig.y;
+                      const onMove = (mv) => {
+                        updateSignature(sig.id, { x: startLeft + (mv.clientX - startX), y: startTop + (mv.clientY - startY) });
+                      };
+                      const onUp = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                      };
+                      document.addEventListener('mousemove', onMove);
+                      document.addEventListener('mouseup', onUp);
+                    }}
+                    onTouchStart={(e) => {
+                      if (!isEditing) return;
+                      const touch = e.touches[0];
+                      const startX = touch.clientX;
+                      const startY = touch.clientY;
+                      const startLeft = sig.x;
+                      const startTop = sig.y;
 
-                  const onTouchMove = (mv) => {
-                    const t = mv.touches[0];
-                    updateSignature(sig.id, { x: startLeft + (t.clientX - startX), y: startTop + (t.clientY - startY) });
-                  };
-                  const onTouchEnd = () => {
-                    document.removeEventListener('touchmove', onTouchMove);
-                    document.removeEventListener('touchend', onTouchEnd);
-                  };
-                  document.addEventListener('touchmove', onTouchMove, { passive: false });
-                  document.addEventListener('touchend', onTouchEnd);
-                }}
-              >
-                <img src={sig.src} className="w-full h-full object-contain pointer-events-none" />
-                {isEditing && <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 cursor-nwse-resize"
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    const startX = e.clientX;
-                    const startW = sig.width;
-                    const startH = sig.height;
-                    const aspect = startW / startH;
+                      const onTouchMove = (mv) => {
+                        const t = mv.touches[0];
+                        updateSignature(sig.id, { x: startLeft + (t.clientX - startX), y: startTop + (t.clientY - startY) });
+                      };
+                      const onTouchEnd = () => {
+                        document.removeEventListener('touchmove', onTouchMove);
+                        document.removeEventListener('touchend', onTouchEnd);
+                      };
+                      document.addEventListener('touchmove', onTouchMove, { passive: false });
+                      document.addEventListener('touchend', onTouchEnd);
+                    }}
+                  >
+                    <img src={sig.src} className="w-full h-full object-contain pointer-events-none" />
+                    {isEditing && <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 cursor-nwse-resize"
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const startX = e.clientX;
+                        const startW = sig.width;
+                        const startH = sig.height;
+                        const aspect = startW / startH;
 
-                    const onMove = (mv) => {
-                      const newW = Math.max(50, startW + (mv.clientX - startX));
-                      updateSignature(sig.id, { width: newW, height: newW / aspect });
-                    };
-                    const onUp = () => {
-                      document.removeEventListener('mousemove', onMove);
-                      document.removeEventListener('mouseup', onUp);
-                    };
-                    document.addEventListener('mousemove', onMove);
-                    document.addEventListener('mouseup', onUp);
-                  }}
-                  onTouchStart={(e) => {
-                    e.stopPropagation();
-                    const touch = e.touches[0];
-                    const startX = touch.clientX;
-                    const startW = sig.width;
-                    const startH = sig.height;
-                    const aspect = startW / startH;
+                        const onMove = (mv) => {
+                          const newW = Math.max(50, startW + (mv.clientX - startX));
+                          updateSignature(sig.id, { width: newW, height: newW / aspect });
+                        };
+                        const onUp = () => {
+                          document.removeEventListener('mousemove', onMove);
+                          document.removeEventListener('mouseup', onUp);
+                        };
+                        document.addEventListener('mousemove', onMove);
+                        document.addEventListener('mouseup', onUp);
+                      }}
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        const touch = e.touches[0];
+                        const startX = touch.clientX;
+                        const startW = sig.width;
+                        const startH = sig.height;
+                        const aspect = startW / startH;
 
-                    const onTouchMove = (mv) => {
-                      const t = mv.touches[0];
-                      const newW = Math.max(50, startW + (t.clientX - startX));
-                      updateSignature(sig.id, { width: newW, height: newW / aspect });
-                    };
-                    const onTouchEnd = () => {
-                      document.removeEventListener('touchmove', onTouchMove);
-                      document.removeEventListener('touchend', onTouchEnd);
-                    };
-                    document.addEventListener('touchmove', onTouchMove, { passive: false });
-                    document.addEventListener('touchend', onTouchEnd);
-                  }}
-                />}
+                        const onTouchMove = (mv) => {
+                          const t = mv.touches[0];
+                          const newW = Math.max(50, startW + (t.clientX - startX));
+                          updateSignature(sig.id, { width: newW, height: newW / aspect });
+                        };
+                        const onTouchEnd = () => {
+                          document.removeEventListener('touchmove', onTouchMove);
+                          document.removeEventListener('touchend', onTouchEnd);
+                        };
+                        document.addEventListener('touchmove', onTouchMove, { passive: false });
+                        document.addEventListener('touchend', onTouchEnd);
+                      }}
+                    />}
+                  </div>
+                ))}
+
               </div>
             ))}
+
+            {/* Manual Add Page Button */}
+            <button
+              onClick={() => setInvoices(prev => {
+                const newState = [...prev];
+                const pages = Array.isArray(newState[currentIndex].content) ? [...newState[currentIndex].content] : [newState[currentIndex].content || ""];
+                pages.push("");
+                newState[currentIndex] = { ...newState[currentIndex], content: pages };
+                return newState;
+              })}
+              className="mb-8 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-slate-600 rounded-full text-xs font-bold shadow transition"
+            >
+              + Add Page
+            </button>
 
             <ImageToolbar image={selectedImage} onUpdate={updateSelectedImage} onDelete={deleteSelectedImage} />
           </div>
         </div>
 
         {showRightSidebar && (
-          <div className="w-[300px] bg-white border-l border-gray-200 hidden xl:flex flex-col z-[80] shadow-xl animate-slide-in-right h-full">
+          <div className="w-[300px] bg-white border-l border-gray-200 hidden xl:flex flex-col z-[95] shadow-xl animate-slide-in-right h-full sticky top-0">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-slate-50">
               <h3 className="font-bold text-xs uppercase tracking-widest text-slate-500">Details</h3>

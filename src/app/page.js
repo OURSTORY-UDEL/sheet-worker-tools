@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, useRef, Suspense, useLayoutEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import html2canvas from 'html2canvas';
@@ -893,7 +894,7 @@ function InvoiceViewer() {
       }
       else if (action === 'Rename') { setShowRenameModal(true); }
       else if (action === 'Page setup') { setShowPageSetup(true); }
-      else if (action === 'Open') { loadFromSupabase(); }
+      else if (action === 'Open') { window.location.href = '/dashboard'; }
       else if (action === 'Print') { window.print(); }
     } else if (category === 'Edit') {
       const map = { 'Undo': 'undo', 'Redo': 'redo', 'Cut': 'cut', 'Copy': 'copy', 'Paste': 'paste' };
@@ -1340,7 +1341,7 @@ function InvoiceViewer() {
       {/* NAVBAR */}
       <nav className="w-full bg-[#1A1A1A] text-white px-4 py-2 flex justify-between items-center sticky top-0 z-[100] border-b border-gray-700 h-14 print:hidden">
         <div className="flex items-center gap-4">
-          <div className="w-9 h-9 bg-emerald-600 rounded flex items-center justify-center text-white shadow-lg"><Icons.Logo /></div>
+          <Link href="/dashboard" className="w-9 h-9 bg-emerald-600 rounded flex items-center justify-center text-white shadow-lg hover:bg-emerald-500 transition" title="Go to Dashboard"><Icons.Logo /></Link>
           <div>
             <h1 className="font-bold text-base leading-tight tracking-wide hidden md:block">SHEET WORKER TOOLS</h1>
             <div className="flex items-center gap-2">

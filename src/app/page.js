@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense, useLayoutEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import html2canvas from 'html2canvas';
 
@@ -8,6 +8,11 @@ import jsPDF from 'jspdf';
 
 import { supabase } from '../lib/supabaseClient';
 // pdfjs-dist removed from top-level to prevent SSR DOMMatrix error
+import { Icons } from '../components/Icons';
+import ImageResizer from '../components/ImageResizer';
+import TableToolbar from '../components/TableToolbar';
+import LineToolbar from '../components/LineToolbar';
+import FindReplaceModal from '../components/FindReplaceModal';
 
 // ==========================================
 // 1. KOMPONEN: TOAST NOTIFICATION (PROFESIONAL)
@@ -202,8 +207,16 @@ function PageSetupModal({ isOpen, onClose, settings, onSave }) {
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Paper Size</label>
               <select className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm text-slate-700 outline-none focus:border-emerald-500" value={localSettings.size} onChange={e => setLocalSettings({ ...localSettings, size: e.target.value })}>
                 <option value="A4">A4 (210mm x 297mm)</option>
+                <option value="A3">A3 (297mm x 420mm)</option>
+                <option value="A5">A5 (148mm x 210mm)</option>
                 <option value="Letter">Letter (8.5" x 11")</option>
                 <option value="Legal">Legal (8.5" x 14")</option>
+                <option value="Tabloid">Tabloid (11" x 17")</option>
+                <option value="Executive">Executive (7.25" x 10.5")</option>
+                <option value="Statement">Statement (5.5" x 8.5")</option>
+                <option value="B5">B5 (176mm x 250mm)</option>
+                <option value="Folio">Folio (8.5" x 13")</option>
+                <option value="Quarto">Quarto (215mm x 275mm)</option>
               </select>
             </div>
 
@@ -510,38 +523,41 @@ function SymbolModal({ isOpen, onClose, onInsert }) {
 }
 
 // ==========================================
-// 2.14. KOMPONEN: IMAGE TOOLBAR (FLOATING)
+// 2.14. KOMPONEN: IMAGE RESIZER & TOOLBAR
 // ==========================================
-function ImageToolbar({ image, onUpdate, onDelete }) {
-  if (!image) return null;
+// ImageResizer moved to ../components/ImageResizer.js
 
-  return (
-    <div className="absolute bg-slate-900/90 text-white rounded-lg shadow-xl backdrop-blur flex items-center gap-1 p-1 z-[50]" style={{ top: image.offsetTop - 50, left: image.offsetLeft }}>
-      <button onClick={() => onUpdate({ width: '25%' })} className="px-2 py-1 text-xs font-bold hover:bg-white/20 rounded">25%</button>
-      <button onClick={() => onUpdate({ width: '50%' })} className="px-2 py-1 text-xs font-bold hover:bg-white/20 rounded">50%</button>
-      <button onClick={() => onUpdate({ width: '100%' })} className="px-2 py-1 text-xs font-bold hover:bg-white/20 rounded">100%</button>
-      <div className="w-px h-4 bg-white/20 mx-1"></div>
-      <button onClick={() => onUpdate({ style: { float: 'left', margin: '0 10px 10px 0' } })} className="p-1 hover:bg-white/20 rounded"><Icons.AlignLeft /></button>
-      <button onClick={() => onUpdate({ style: { float: 'none', display: 'block', margin: '0 auto' } })} className="p-1 hover:bg-white/20 rounded"><Icons.AlignCenter /></button>
-      <button onClick={() => onUpdate({ style: { float: 'right', margin: '0 0 10px 10px' } })} className="p-1 hover:bg-white/20 rounded"><Icons.AlignRight /></button>
-      <div className="w-px h-4 bg-white/20 mx-1"></div>
-      <button onClick={() => onUpdate({ className: 'rounded-xl shadow-lg border-4 border-white' })} className="px-2 py-1 text-xs hover:bg-white/20 rounded">Style</button>
-      <button onClick={onDelete} className="p-1 hover:bg-red-500/50 text-red-300 hover:text-white rounded ml-1">✕</button>
-    </div>
-  );
-}
+// ==========================================
+// 2.17. KOMPONEN: FIND REPLACE MODAL
+// ==========================================
+// FindReplaceModal moved to ../components/FindReplaceModal.js
+
+
+// ==========================================
+// 2.15. KOMPONEN: TABLE TOOLBAR & RESIZER
+// ==========================================
+// TableToolbar moved to ../components/TableToolbar.js
+
+// ==========================================
+// 2.16. KOMPONEN: LINE TOOLBAR & RESIZER
+// ==========================================
+// LineToolbar moved to ../components/LineToolbar.js
 
 // ==========================================
 // 4. DATA MENU DROPDOWN (UPDATED)
 // ==========================================
 const MENU_DATA = {
-  File: ['Share', 'New', 'Open', 'Make a copy', 'Rename', 'Page setup'],
+  File: ['Share', 'New', 'Open', 'Make a copy', 'Rename', 'Page setup', 'Print'],
   Edit: ['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Select all', 'Find and replace'],
   View: ['Toggle Details', 'Show print layout', 'Show ruler', 'Full screen'],
-  Insert: ['Image', 'Import PDF Data', 'Table', 'Horizontal line', 'Signature', 'Special characters'], // Link removed
-  Format: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'Superscript', 'Subscript', 'Clear formatting', 'Align Left', 'Align Center', 'Align Right', 'Justify'],
-  Tools: ['Spelling and grammar', 'Word count', 'Voice typing', 'Extensions'],
-  Help: ['Help', 'Report Issue']
+  Insert: ['Image', 'Table', 'Horizontal line', 'Special characters', 'Signature', 'Import PDF Data', 'Page break'],
+  Format: [
+    { label: 'Text', submenu: ['Bold', 'Italic', 'Underline', 'Strikethrough', 'Superscript', 'Subscript'] },
+    { label: 'Paragraph styles', submenu: ['Normal text', 'Title', 'Subtitle', 'Heading 1', 'Heading 2', 'Heading 3'] },
+    { label: 'Align & indent', submenu: ['Left', 'Center', 'Right', 'Justify', 'Increase indent', 'Decrease indent'] },
+    'Clear formatting'
+  ],
+  Tools: ['Spelling and grammar', 'Word count', 'Dictionary'],
 };
 
 const FONT_FAMILIES = [
@@ -554,6 +570,7 @@ const FONT_FAMILIES = [
 function InvoiceViewer() {
   const searchParams = useSearchParams();
   const [invoices, setInvoices] = useState([]);
+  const [savedFiles, setSavedFiles] = useState([]); // Separate state for File Open list
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -570,14 +587,21 @@ function InvoiceViewer() {
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showFindReplace, setShowFindReplace] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+
+  // ... (rest of simple states)
+
 
   // ADVANCED FEATURES STATE
   const [showTableModal, setShowTableModal] = useState(false);
   const [showLineModal, setShowLineModal] = useState(false);
   const [showSymbolModal, setShowSymbolModal] = useState(false);
   const [signatures, setSignatures] = useState([]); // Array of {id, src, x, y, width, height}
-  const [selectedImage, setSelectedImage] = useState(null); // DOM Element ref
+  // FIX: Store IDs instead of DOM references to avoid "detached node" issues
+  const [selectedImageId, setSelectedImageId] = useState(null);
+  const [selectedTable, setSelectedTable] = useState(null); // Keep as Ref for now (Tables are complex)
+  const [selectedLine, setSelectedLine] = useState(null); // Keep as Ref for now
 
   const [pageSettings, setPageSettings] = useState({
     size: 'A4',
@@ -589,7 +613,7 @@ function InvoiceViewer() {
   const [showRuler, setShowRuler] = useState(true);
   const [printLayout, setPrintLayout] = useState(true);
   const [showRightSidebar, setShowRightSidebar] = useState(true);
-  const [docStats, setDocStats] = useState({ words: 0, chars: 0 });
+  const [docStats, setDocStats] = useState({ words: 0, chars: 0, pages: 0 });
 
   // EDITOR STATE
   const [fontName, setFontName] = useState("Arial");
@@ -597,6 +621,61 @@ function InvoiceViewer() {
   const [paintFormat, setPaintFormat] = useState(null);
   const pageRefs = useRef([]); // CHANGED: Array of refs for multiple pages
   const pendingFocus = useRef(null); // To track if we need to focus next page
+  const savedSelection = useRef(null); // Save selection before opening modals
+
+  const saveSelection = () => {
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) {
+      savedSelection.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
+
+  const restoreSelection = () => {
+    if (savedSelection.current) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedSelection.current);
+    }
+  };
+
+  // RULER STATE
+  const [indentLeft, setIndentLeft] = useState(0);
+
+  // LISTEN TO SELECTION FOR RULER SYNC
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const node = sel.anchorNode;
+      const el = node.nodeType === 3 ? node.parentElement : node;
+      const computed = window.getComputedStyle(el);
+      // Try to read padding-left or text-indent
+      const pl = parseInt(computed.paddingLeft) || 0;
+      setIndentLeft(pl);
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
+
+  const handleRulerChange = (newVal) => {
+    setIndentLeft(newVal);
+    // Apply to current selection
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const block = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+
+    // Walk up to find a block element.
+    // EXCLUDE the main contentEditable root to prevent shifting the whole page.
+    const p = block.closest('p, h1, h2, h3, h4, h5, li, div');
+
+    if (p && p.getAttribute('contenteditable') !== 'true' && !p.classList.contains('editor-canvas')) {
+      // CLAMP VALUE: Prevent overflow
+      // Max indentation should be reasonable (e.g. page width - 200px)
+      // Assuming A4 width ~794px in screen check or just cap at 400px
+      const clampedVal = Math.max(0, Math.min(newVal, 400));
+      p.style.paddingLeft = `${clampedVal}px`;
+    }
+  };
 
   // HANDLE FOCUS AFTER PAGE CREATION
   useEffect(() => {
@@ -628,7 +707,7 @@ function InvoiceViewer() {
 
   // REAL-TIME DOC STATS
   useEffect(() => {
-    const interval = setInterval(() => {
+    const calculateStats = () => {
       let totalWords = 0;
       let totalChars = 0;
 
@@ -640,10 +719,13 @@ function InvoiceViewer() {
           totalChars += text.length;
         }
       });
-      setDocStats({ words: totalWords, chars: totalChars });
-    }, 1000);
+      setDocStats({ words: totalWords, chars: totalChars, pages: (pageRefs.current?.filter(Boolean).length || 0) });
+    };
+
+    calculateStats(); // Run immediately
+    const interval = setInterval(calculateStats, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [invoices]); // Run when invoices change too
 
   useEffect(() => {
     // Mobile Auto-Zoom and Listeners
@@ -742,21 +824,40 @@ function InvoiceViewer() {
   };
 
   const loadFromSupabase = async () => {
-    showToast("Cloud", "Mengambil data...", "info");
+    showToast("Cloud", "Mengambil daftar file...", "info");
     const { data, error } = await supabase
       .from('invoices')
-      .select('*')
+      .select('no, customer, updated_at, content') // Select fields needed
       .order('updated_at', { ascending: false });
 
     if (error) {
       console.error('Supabase Error:', error);
       showToast("Error", "Gagal mengambil data.", "error");
     } else if (data) {
-      const formattedInvoices = data.map(row => row.content);
-      setInvoices(formattedInvoices);
+      setSavedFiles(data); // Store raw rows
       setShowOpenModal(true);
-      showToast("Sukses", `${data.length} dokumen dimuat dari Cloud.`, "success");
+      showToast("Sukses", `Daftar file dimuat.`, "success");
     }
+  };
+
+  const syncStateFromDom = (element) => {
+    if (!element) return;
+    const pageEl = element.closest('.editor-canvas');
+    if (!pageEl) return;
+
+    // Find index in pageRefs
+    const pageIndex = pageRefs.current.findIndex(p => p === pageEl);
+    if (pageIndex === -1) return;
+
+    // Sync that page
+    const html = pageEl.innerHTML;
+    setInvoices(prev => {
+      const newState = [...prev];
+      const pages = Array.isArray(newState[currentIndex].content) ? [...newState[currentIndex].content] : [newState[currentIndex].content || ""];
+      pages[pageIndex] = html;
+      newState[currentIndex] = { ...newState[currentIndex], content: pages };
+      return newState;
+    });
   };
 
   const preventFocusLoss = (e) => e.preventDefault();
@@ -793,10 +894,32 @@ function InvoiceViewer() {
       else if (action === 'Rename') { setShowRenameModal(true); }
       else if (action === 'Page setup') { setShowPageSetup(true); }
       else if (action === 'Open') { loadFromSupabase(); }
+      else if (action === 'Print') { window.print(); }
     } else if (category === 'Edit') {
-      const map = { 'Undo': 'undo', 'Redo': 'redo', 'Cut': 'cut', 'Copy': 'copy', 'Paste': 'paste', 'Select all': 'selectAll' };
+      const map = { 'Undo': 'undo', 'Redo': 'redo', 'Cut': 'cut', 'Copy': 'copy', 'Paste': 'paste' };
       if (map[action]) formatText(map[action]);
-      else if (action === 'Find and replace') { const term = prompt("Cari teks:"); if (term && window.find) window.find(term); }
+      else if (action === 'Select all') {
+        // Select ALL pages content
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        const range = document.createRange();
+        // We can only select one contiguous range in most browsers.
+        // We select the container of pages? No, that selects UI too.
+        // Best effort: Select the currently active page fully.
+        // Or if refined: Try to modify all pages to be 'selected' custom state?
+        // Let's stick to standard behavior: Select current focused page content.
+        // User requested "Select Not Just One Page". This is hard with ContentEditable.
+        // WORKAROUND: Select the *wrapper* of all pages if possible?
+        // No, let's select the current page and show a toast explaining limitation or 
+        // actually, if we want to support "Select All" for Copy, we can create a hidden textarea with all content?
+        // Let's try selecting the first page to the last page?
+        if (pageRefs.current.length > 0) {
+          range.setStart(pageRefs.current[0], 0);
+          range.setEnd(pageRefs.current[pageRefs.current.length - 1], pageRefs.current[pageRefs.current.length - 1].childNodes.length);
+          sel.addRange(range);
+        }
+      }
+      else if (action === 'Find and replace') { setShowFindReplace(true); }
     } else if (category === 'View') {
       if (action === 'Toggle Details') setShowRightSidebar(!showRightSidebar);
       else if (action === 'Show print layout') setPrintLayout(!printLayout);
@@ -805,30 +928,44 @@ function InvoiceViewer() {
     } else if (category === 'Insert') {
       if (action === 'Image') document.getElementById('imgInputHidden').click();
       else if (action === 'Import PDF Data') document.getElementById('pdfInputHidden').click();
-      else if (action === 'Horizontal line') setShowLineModal(true);
-      else if (action === 'Table') setShowTableModal(true);
-      else if (action === 'Signature') setShowSignatureModal(true);
-      else if (action === 'Special characters') setShowSymbolModal(true);
+      else if (action === 'Horizontal line') { saveSelection(); setShowLineModal(true); }
+      else if (action === 'Table') { saveSelection(); setShowTableModal(true); }
+      else if (action === 'Signature') { saveSelection(); setShowSignatureModal(true); }
+      else if (action === 'Special characters') { saveSelection(); setShowSymbolModal(true); }
+      else if (action === 'Page break') {
+        setInvoices(prev => {
+          const newState = [...prev];
+          const pages = Array.isArray(newState[currentIndex].content) ? [...newState[currentIndex].content] : [newState[currentIndex].content || ""];
+          pages.push("");
+          newState[currentIndex] = { ...newState[currentIndex], content: pages };
+          // Auto focus new page
+          setTimeout(() => {
+            pendingFocus.current = { index: pages.length - 1, atEnd: false };
+          }, 100);
+          return newState;
+        });
+      }
     } else if (category === 'Format') {
-      if (action === 'Clear formatting') formatText('removeFormat');
-      else if (action === 'Bold') formatText('bold');
-      else if (action === 'Italic') formatText('italic');
-      else if (action === 'Underline') formatText('underline');
-      else if (action === 'Strikethrough') formatText('strikeThrough');
-      else if (action === 'Superscript') formatText('superscript');
-      else if (action === 'Subscript') formatText('subscript');
-      else if (action === 'Align Left') formatText('justifyLeft');
-      else if (action === 'Align Center') formatText('justifyCenter');
-      else if (action === 'Align Right') formatText('justifyRight');
-      else if (action === 'Justify') formatText('justifyFull');
+      // Map actions from submenus to commands
+      const styleMap = {
+        'Bold': 'bold', 'Italic': 'italic', 'Underline': 'underline',
+        'Strikethrough': 'strikeThrough', 'Superscript': 'superscript', 'Subscript': 'subscript',
+        'Left': 'justifyLeft', 'Center': 'justifyCenter', 'Right': 'justifyRight', 'Justify': 'justifyFull',
+        'Increase indent': 'indent', 'Decrease indent': 'outdent',
+        'Clear formatting': 'removeFormat'
+      };
+
+      const tagMap = {
+        'Normal text': 'p', 'Title': 'h1', 'Subtitle': 'h2', 'Heading 1': 'h3', 'Heading 2': 'h4', 'Heading 3': 'h5'
+      };
+
+      if (styleMap[action]) formatText(styleMap[action]);
+      else if (tagMap[action]) formatText('formatBlock', tagMap[action]);
+
     } else if (category === 'Tools') {
       if (action === 'Word count') setShowWordCount(true);
       else if (action === 'Spelling and grammar') { setSpellCheck(!spellCheck); showToast("Spell Check", !spellCheck ? "Aktif" : "Non-aktif", "info"); }
-      else if (action === 'Voice typing') startVoiceTyping();
-      else if (action === 'Extensions') showToast("Extensions", "Belum ada ekstensi terinstall.", "warning");
-    } else if (category === 'Help') {
-      if (action === 'Help') window.open('https://support.google.com/docs', '_blank');
-      else if (action === 'Report Issue') showToast("Report", "Silakan hubungi admin.", "info");
+      else if (action === 'Dictionary') showToast("Dictionary", "Fitur Kamus belum tersedia.", "info");
     }
   };
 
@@ -898,6 +1035,7 @@ function InvoiceViewer() {
 
   // --- HANDLERS FOR NEW FEATURES ---
   const handleInsertTable = (rows, cols) => {
+    restoreSelection();
     let html = '<table style="width:100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #cbd5e1;"><tbody>';
     for (let i = 0; i < rows; i++) {
       html += '<tr>';
@@ -911,10 +1049,11 @@ function InvoiceViewer() {
   };
 
   const handleInsertLine = (width, height, color) => {
+    restoreSelection();
     formatText('insertHTML', `<hr style="width:${width}; height:${height}; background-color:${color}; border:none; margin: 10px 0;" /><p><br/></p>`);
   };
 
-  const handleInsertSymbol = (char) => formatText('insertText', char);
+  const handleInsertSymbol = (char) => { restoreSelection(); formatText('insertText', char); };
 
   const handleInsertSignature = (dataUrl) => {
     setSignatures(prev => [...prev, { id: Date.now(), src: dataUrl, x: 100, y: 100, width: 200, height: 100 }]);
@@ -927,25 +1066,28 @@ function InvoiceViewer() {
 
   // IMAGE HANDLING
   const handleEditorClick = (e) => {
-    if (e.target.tagName === 'IMG') {
-      setSelectedImage(e.target);
-    } else {
-      setSelectedImage(null);
+    // Image selection is handled inline in the render loop to ensure IDs
+    // We keep this if needed for other global clicks
+    if (e.target.tagName !== 'IMG' && !e.target.closest('table') && e.target.tagName !== 'HR') {
+      // Clear selection if clicking elsewhere
+      // handled inline, but safe to keep empty or specifics here
     }
   };
 
   const updateSelectedImage = (updates) => {
-    if (!selectedImage) return;
-    if (updates.width) selectedImage.style.width = updates.width;
-    if (updates.style) Object.assign(selectedImage.style, updates.style);
-    if (updates.className) selectedImage.className = updates.className;
-    setSelectedImage(null); // Close toolbar after action
+    const img = document.getElementById(selectedImageId);
+    if (!img) return;
+    if (updates.width) img.style.width = updates.width;
+    if (updates.style) Object.assign(img.style, updates.style);
+    if (updates.className) img.className = updates.className;
+    // setSelectedImageId(null); // constant updates shouldn't close it?
   };
 
   const deleteSelectedImage = () => {
-    if (selectedImage) {
-      selectedImage.remove();
-      setSelectedImage(null);
+    const img = document.getElementById(selectedImageId);
+    if (img) {
+      img.remove();
+      setSelectedImageId(null);
     }
   };
 
@@ -954,75 +1096,143 @@ function InvoiceViewer() {
     const file = e.target.files[0];
     if (!file) return;
 
-    showToast("PDF Import", "Membaca layout PDF...", "info");
+    showToast("PDF Import", "Membaca layout PDF... (Proses ini bergantung koneksi internet untuk Worker)", "info");
     try {
       // Dynamic import to avoid SSR issues
       const pdfjsLib = await import('pdfjs-dist');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      // Ensure we use a matching version for the worker. 
+      // Fallback to a fixed version if pdfjsLib.version is unavailable or weird, but usually it works.
+      // For v5+, use .mjs and a reliable CDN like unpkg
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-      const page = await pdf.getPage(1);
 
-      // Get Text Content with Styles
-      const textContent = await page.getTextContent();
-      const viewport = page.getViewport({ scale: 1.5 }); // Scale for better visibility
+      let newPagesHtml = [];
+      let importedMeta = { no: null, total: null };
 
-      // Construct HTML from Text Items
-      // This maps PDF absolute coordinates to HTML absolute/relative positioning approximation
-      let htmlContent = '<div style="position: relative; width: 100%; height: 1000px;">';
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const textContent = await page.getTextContent();
+        const viewport = page.getViewport({ scale: 1.0 });
 
-      textContent.items.forEach(item => {
-        // PDF coords: (0,0) is bottom-left. We need to flip Y.
-        // item.transform = [scaleX, skewY, skewX, scaleY, x, y]
-        const tx = item.transform;
-        const x = tx[4];
-        const y = viewport.height - tx[5]; // Flip Y
-        const fontSize = Math.sqrt(tx[0] * tx[3]); // Approximate
-        const text = item.str;
+        // REFLOW ALGORITHM: Group items by Y coordinate (Lines) -> Group keys by proximity
+        const items = textContent.items;
 
-        // Simple heuristic: Ignore empty strings
-        if (!text.trim()) return;
+        // 1. Sort by Y (descending - top to bottom), then X (ascending)
+        items.sort((a, b) => {
+          const yA = a.transform[5];
+          const yB = b.transform[5];
+          if (Math.abs(yA - yB) > 5) return yB - yA; // Different lines
+          return a.transform[4] - b.transform[4]; // Same line, sort X
+        });
 
-        htmlContent += `<div style="position: absolute; left: ${x}px; top: ${y / 2}px; font-size: ${Math.max(12, fontSize)}px; white-space: nowrap;">${text}</div>`;
-      });
-      htmlContent += '</div>';
+        // 2. Group into Lines
+        const lines = [];
+        let currentLine = [];
+        let lastY = null;
 
-      // Fallback: If empty, use primitive scraping
-      if (textContent.items.length === 0) {
-        const text = textContent.items.map(item => item.str).join(' ');
-        htmlContent = `<p>${text}</p>`;
+        items.forEach(item => {
+          if (!item.str.trim()) return;
+          const y = item.transform[5];
+          if (lastY === null || Math.abs(y - lastY) < 6) {
+            currentLine.push(item);
+          } else {
+            lines.push(currentLine);
+            currentLine = [item];
+          }
+          lastY = y;
+        });
+        if (currentLine.length > 0) lines.push(currentLine);
+
+        // 3. Convert Lines to HTML Paragraphs
+        let pageHtml = "";
+        lines.forEach(line => {
+          // Sort items by X again to be sure
+          line.sort((a, b) => a.transform[4] - b.transform[4]);
+
+          // Construct line text with spacing preservation
+          let lineHtml = "";
+          let lastX = -1;
+          let lastWidth = 0;
+
+          line.forEach(item => {
+            const currentX = item.transform[4];
+            const gap = (lastX >= 0) ? (currentX - (lastX + lastWidth)) : 0;
+
+            // Add non-breaking spaces for gaps (approx 4px per space)
+            if (gap > 5) {
+              const spaces = Math.floor(gap / 4);
+              lineHtml += "&nbsp;".repeat(Math.min(spaces, 20)); // Limit spaces
+            } else if (lastX >= 0) {
+              lineHtml += " "; // Normal space
+            }
+
+            lineHtml += item.str;
+            lastX = currentX;
+            lastWidth = item.width || (item.str.length * 5); // Fallback width
+          });
+
+          // Detect header info from first page (simplified)
+          if (p === 1) {
+            const rawText = line.map(i => i.str).join(' ');
+            if (!importedMeta.no) {
+              const m = rawText.match(/(?:Invoice|No|Bill)[:\.\s]*([A-Z0-9\-\.]+)/i);
+              if (m) importedMeta.no = m[1];
+            }
+            if (!importedMeta.total) {
+              const m = rawText.match(/(?:Total|Tagihan|Amount)[:\.\s]*([Rp\$\d\.,]+)/i);
+              if (m) importedMeta.total = m[1];
+            }
+          }
+
+          // Formatting
+          const fontSize = Math.sqrt(line[0].transform[0] * line[0].transform[3]);
+          let tagName = 'p';
+          let fw = 'normal';
+          if (fontSize > 18) { tagName = 'h2'; fw = 'bold'; }
+          else if (fontSize > 14) { tagName = 'h3'; fw = 'bold'; }
+
+          pageHtml += `<${tagName} style="font-weight:${fw}; margin-bottom: 4px; white-space: pre-wrap;">${lineHtml}</${tagName}>`;
+        });
+
+        if (!pageHtml) pageHtml = "<p><br/></p>";
+        newPagesHtml.push(pageHtml);
       }
-
-      // Try to extract Invoice Metadata for the sidebar/header
-      const text = textContent.items.map(item => item.str).join(' ');
-      const invoiceNoMatch = text.match(/(?:Invoice|No)[:\.\s]*([A-Z0-9\-\.]+)/i);
-      const totalMatch = text.match(/(?:Total|Tagihan)[:\.\s]*([Rp\$\d\.,]+)/i);
 
       setInvoices(prev => [...prev, {
-        no: invoiceNoMatch ? invoiceNoMatch[1] : `IMP-${Math.floor(Math.random() * 1000)}`,
+        no: importedMeta.no || `IMP-${Math.floor(Math.random() * 1000)}`,
         date: new Date().toLocaleDateString(),
-        customer: "Imported PDF",
-        items: [{ desc: "Imported PDF Content (Editable)", qty: 1, price: 0, total: totalMatch ? totalMatch[1] : "0" }],
-        grandTotal: totalMatch ? totalMatch[1] : "0",
-        // Inject HTML into a special field or just overwrite the content if we move to full HTML storage
-        // For now, we simulate "Imported" by resetting logic but here we are in "Editor"
+        customer: "Imported PDF Data",
+        items: [{ desc: "Imported Content", qty: 1, price: 0, total: importedMeta.total || "0" }],
+        content: newPagesHtml, // Array of HTML strings per page
+        email: ""
       }]);
 
-      // Inject content directly into editor
-      if (invoiceRef.current) {
-        invoiceRef.current.innerHTML = htmlContent;
-      }
+      setCurrentIndex(invoices.length); // Point to new invoice
+      showToast("Sukses", `${pdf.numPages} Halaman PDF di-import.`, "success");
 
-      setCurrentIndex(invoices.length);
-      showToast("Sukses", "Layout PDF di-import.", "success");
     } catch (err) {
       console.error(err);
-      showToast("Error", "Gagal membaca PDF.", "error");
+      showToast("Error", "Gagal membaca PDF. Pastikan file tidak corrupt.", "error");
     }
   };
 
-  const handleImageChange = (e) => { if (e.target.files[0]) formatText('insertImage', URL.createObjectURL(e.target.files[0])); };
+  const handleImageChange = (e) => {
+    if (e.target.files[0]) {
+      const url = URL.createObjectURL(e.target.files[0]);
+      const uniqueId = `img-${Date.now()}`;
+      // Use insertHTML to attach ID immediately
+      const imgHtml = `<img src="${url}" id="${uniqueId}" style="max-width: 100%;" />`;
+      document.execCommand('insertHTML', false, imgHtml);
+
+      // Auto-select the new image
+      setTimeout(() => {
+        const img = document.getElementById(uniqueId);
+        if (img) setSelectedImageId(uniqueId);
+      }, 100);
+    }
+  };
   const handleZoom = (val) => setZoomLevel(prev => Math.min(Math.max(prev + val, 50), 200));
   const handleDownloadPDF = async () => {
     setIsEditing(false);
@@ -1089,13 +1299,46 @@ function InvoiceViewer() {
       <TableModal isOpen={showTableModal} onClose={() => setShowTableModal(false)} onInsert={handleInsertTable} />
       <LineModal isOpen={showLineModal} onClose={() => setShowLineModal(false)} onInsert={handleInsertLine} />
       <SymbolModal isOpen={showSymbolModal} onClose={() => setShowSymbolModal(false)} onInsert={handleInsertSymbol} />
+      <FindReplaceModal
+        isOpen={showFindReplace}
+        onClose={() => setShowFindReplace(false)}
+        onFind={(text) => {
+          if (text && window.find) {
+            const found = window.find(text, false, false, true, false, true, false);
+            if (!found) showToast("Info", "Teks tidak ditemukan.", "info");
+          }
+        }}
+        onReplace={(find, replace) => {
+          const sel = window.getSelection();
+          if (sel.toString() === find) {
+            document.execCommand('insertText', false, replace);
+          } else {
+            // Find first then replace
+            const found = window.find(find, false, false, true, false, true, false);
+            if (found) document.execCommand('insertText', false, replace);
+            else showToast("Info", "Teks tidak ditemukan.", "info");
+          }
+        }}
+        onReplaceAll={(find, replace) => {
+          // Basic loop implementation
+          let count = 0;
+          // Reset cursor to start
+          window.getSelection().removeAllRanges();
+          while (window.find(find, false, false, true, false, true, false)) {
+            document.execCommand('insertText', false, replace);
+            count++;
+            if (count > 100) break; // Safety break
+          }
+          showToast("Selesai", `${count} occurences replaced.`, "success");
+        }}
+      />
       <RenameModal isOpen={showRenameModal} onClose={() => setShowRenameModal(false)} currentName={currentData.no} onRename={(newName) => { setInvoices(prev => prev.map((inv, idx) => idx === currentIndex ? { ...inv, no: newName } : inv)); showToast("Rename", "Dokumen dinamai ulang.", "success"); }} />
       <ConfirmModal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} title={confirmAction?.title} message={confirmAction?.message} onConfirm={confirmAction?.action} />
       <input type="file" id="imgInputHidden" hidden onChange={handleImageChange} />
       <input type="file" id="pdfInputHidden" hidden accept=".pdf" onChange={handleImportPDF} />
 
       {/* NAVBAR */}
-      <nav className="w-full bg-[#1A1A1A] text-white px-4 py-2 flex justify-between items-center sticky top-0 z-[100] border-b border-gray-700 h-14">
+      <nav className="w-full bg-[#1A1A1A] text-white px-4 py-2 flex justify-between items-center sticky top-0 z-[100] border-b border-gray-700 h-14 print:hidden">
         <div className="flex items-center gap-4">
           <div className="w-9 h-9 bg-emerald-600 rounded flex items-center justify-center text-white shadow-lg"><Icons.Logo /></div>
           <div>
@@ -1135,20 +1378,48 @@ function InvoiceViewer() {
         {Object.keys(MENU_DATA).map((menuName) => (
           <div key={menuName} className="relative h-full flex items-center">
             <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === menuName ? null : menuName); }} className={`px-3 py-1 rounded hover:bg-gray-100 transition ${activeMenu === menuName ? "bg-gray-200" : ""}`}>{menuName}</button>
-            {activeMenu === menuName && <div className="absolute top-full left-0 bg-white border border-gray-200 shadow-xl rounded-b-lg py-1 min-w-[220px] z-[110] flex flex-col animate-fade-in-down">{MENU_DATA[menuName].map((item, idx) => (<button key={idx} onClick={() => handleMenuClick(menuName, item)} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-slate-700 flex justify-between group"><span>{item}</span></button>))}</div>}
+            {activeMenu === menuName && (
+              <div className="absolute top-full left-0 bg-white border border-gray-200 shadow-xl rounded-b-lg py-1 min-w-[220px] z-[110] flex flex-col animate-fade-in-down">
+                {MENU_DATA[menuName].map((item, idx) => {
+                  if (typeof item === 'string') {
+                    return (
+                      <button key={idx} onClick={() => handleMenuClick(menuName, item)} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-slate-700 flex justify-between group">
+                        <span>{item}</span>
+                      </button>
+                    );
+                  } else {
+                    // Submenu Render
+                    return (
+                      <div key={idx} className="relative group/sub w-full">
+                        <button className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-slate-700 flex justify-between items-center">
+                          <span>{item.label}</span>
+                          <span className="text-gray-400 text-[10px]">▶</span>
+                        </button>
+                        <div className="absolute top-0 left-full -ml-1 bg-white border border-gray-200 shadow-xl rounded-lg py-1 min-w-[180px] hidden group-hover/sub:flex flex-col z-[120]">
+                          {item.submenu.map((sub, sIdx) => (
+                            <button key={sIdx} onClick={() => { handleMenuClick(menuName, sub); setActiveMenu(null); }} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm text-slate-700">
+                              {sub}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       {/* TOOLBAR LENGKAP - URUTAN SESUAI PERMINTAAN */}
-      <div className="w-full bg-[#EDF2FA] border-b border-gray-300 px-4 py-1.5 flex items-center gap-1 overflow-x-auto sticky top-[92px] z-[80] shadow-sm h-12">
+      <div className="w-full bg-[#EDF2FA] border-b border-gray-300 px-4 py-1.5 flex items-center gap-1 overflow-x-auto sticky top-[92px] z-[80] shadow-sm h-12 print:hidden">
         {/* 1. Riwayat & Print */}
         <button onMouseDown={preventFocusLoss} onClick={() => formatText('undo')} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Undo"><Icons.Undo /></button>
         <button onMouseDown={preventFocusLoss} onClick={() => formatText('redo')} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Redo"><Icons.Redo /></button>
         <button onMouseDown={preventFocusLoss} onClick={() => window.print()} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Print"><Icons.Print /></button>
         <button onMouseDown={preventFocusLoss} onClick={handlePaintFormat} className={`p-1.5 rounded transition ${paintFormat ? 'bg-emerald-100 text-emerald-600 ring-2 ring-emerald-500' : 'hover:bg-gray-200 text-slate-600'}`} title="Paint Format"><Icons.FormatPaint /></button>
 
-        <div className="w-px h-5 bg-gray-300 mx-2"></div>
 
         <div className="w-px h-5 bg-gray-300 mx-2"></div>
 
@@ -1189,10 +1460,10 @@ function InvoiceViewer() {
 
         {/* 4. Insert */}
         {/* 4. Insert */}
-        <button onMouseDown={preventFocusLoss} onClick={() => document.getElementById('imgInputHidden').click()} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Image"><Icons.Image /></button>
-        <button onMouseDown={preventFocusLoss} onClick={() => setShowTableModal(true)} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Table">T</button>
-        <button onMouseDown={preventFocusLoss} onClick={() => setShowLineModal(true)} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Line">--</button>
-        <button onMouseDown={preventFocusLoss} onClick={() => setShowSymbolModal(true)} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Symbol">Ω</button>
+        <button onMouseDown={preventFocusLoss} onClick={() => { saveSelection(); document.getElementById('imgInputHidden').click(); }} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Image"><Icons.Image /></button>
+        <button onMouseDown={preventFocusLoss} onClick={() => { saveSelection(); setShowTableModal(true); }} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Table">T</button>
+        <button onMouseDown={preventFocusLoss} onClick={() => { saveSelection(); setShowLineModal(true); }} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Line">--</button>
+        <button onMouseDown={preventFocusLoss} onClick={() => { saveSelection(); setShowSymbolModal(true); }} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 transition" title="Insert Symbol">Ω</button>
 
         <div className="w-px h-5 bg-gray-300 mx-2"></div>
 
@@ -1213,7 +1484,7 @@ function InvoiceViewer() {
         <button onMouseDown={preventFocusLoss} onClick={() => formatText('removeFormat')} className="p-1.5 hover:bg-gray-200 rounded text-slate-600 ml-1" title="Clear Formatting"><Icons.ClearFormat /></button>
 
         {/* Zoom Control */}
-        <div className="ml-auto flex items-center border border-gray-300 rounded px-1 h-7 bg-white shadow-sm">
+        <div className="ml-auto flex items-center border border-gray-300 rounded px-1 h-7 bg-white shadow-sm print:hidden">
           <button onClick={() => handleZoom(-10)} className="px-2 hover:bg-gray-100 text-slate-600">-</button>
           <span className="text-xs font-medium w-10 text-center select-none">{zoomLevel}%</span>
           <button onClick={() => handleZoom(10)} className="px-2 hover:bg-gray-100 text-slate-600">+</button>
@@ -1221,38 +1492,149 @@ function InvoiceViewer() {
       </div>
 
       {/* WORKSPACE */}
-      <div className="flex w-full flex-1 overflow-hidden h-full relative">
-        <div className={`flex-1 overflow-auto flex justify-center p-8 pb-32 ${printLayout ? 'bg-[#EDF0F2]' : 'bg-white'}`}>
-          <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }} className="transition-transform duration-200 h-max flex flex-col items-center gap-8">
+      <div className="flex w-full flex-1 overflow-hidden h-full relative print:h-auto print:block print:overflow-visible">
+        <div className={`flex-1 overflow-auto flex justify-center p-8 pb-32 ${printLayout ? 'bg-[#EDF0F2]' : 'bg-white'} print:p-0 print:bg-white print:block print:overflow-visible`}>
+          <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }} className="transition-transform duration-200 h-max flex flex-col items-center gap-8 print:transform-none print:block">
 
             {currentPages.map((pageHtml, pageIndex) => (
-              <div key={pageIndex} className="relative group">
+              <div key={pageIndex} className="relative group print:bg-white print:m-0 print:shadow-none print:w-full" style={{ breakAfter: pageIndex < currentPages.length - 1 ? 'page' : 'auto' }}>
                 {/* Page Indicator */}
-                <div className="absolute top-2 -left-12 text-xs text-gray-400 font-bold select-none opacity-0 group-hover:opacity-100 transition">
+                <div className="absolute top-2 -left-12 text-xs text-gray-400 font-bold select-none opacity-0 group-hover:opacity-100 transition print:hidden">
                   Page {pageIndex + 1}
                 </div>
 
                 {showRuler && printLayout && pageIndex === 0 && (
-                  <div className="absolute -top-8 left-0 w-full h-6 bg-transparent border-b border-gray-300 flex items-end text-[8px] text-gray-400 select-none">
-                    {[...Array(20)].map((_, i) => <div key={i} className="flex-1 border-r border-gray-300 h-2 flex justify-end pr-1">{i + 1}</div>)}
+                  <div
+                    className="absolute -top-6 left-0 w-full h-6 bg-gray-100 border-b border-gray-300 select-none overflow-visible font-mono text-[9px] text-gray-500 print:hidden"
+                    style={{
+                      paddingLeft: `${pageSettings.marginLeft}mm`,
+                      paddingRight: `${pageSettings.marginRight}mm`
+                    }}
+                  >
+                    {/* Ruler Container matching printable area */}
+                    <div className="relative h-full w-full">
+                      {/* Tick Marks & Numbers */}
+                      <div className="absolute inset-0 flex items-end pointer-events-none">
+                        {[...Array(40)].map((_, i) => (
+                          <div key={i} className="flex-1 border-r border-gray-300 h-2 flex justify-end pr-0.5 relative">
+                            {i % 5 === 0 && <span className="absolute -top-3 right-0 transform translate-x-1/2 text-[8px]">{i}</span>}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* First Line Indent Marker (Down Triangle) */}
+                      <div
+                        className="absolute top-0 w-3 h-full cursor-col-resize group z-20 hover:bg-blue-500/10 transition"
+                        style={{ left: `${indentLeft}px` }}
+                        title="First Line Indent"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startIndent = indentLeft;
+                          const onMove = (mv) => {
+                            const diff = mv.clientX - startX;
+                            const newVal = Math.max(0, startIndent + diff);
+                            handleRulerChange(newVal);
+                          };
+                          const onUp = () => {
+                            window.removeEventListener('mousemove', onMove);
+                            window.removeEventListener('mouseup', onUp);
+                          };
+                          window.addEventListener('mousemove', onMove);
+                          window.addEventListener('mouseup', onUp);
+                        }}
+                      >
+                        <div className="absolute top-0 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-blue-600"></div>
+                      </div>
+
+                      {/* Left Indent Marker (Square) */}
+                      <div
+                        className="absolute top-0 w-3 h-full cursor-col-resize group z-20 hover:bg-blue-500/10 transition"
+                        style={{ left: `${indentLeft}px` }}
+                        title="Left Indent"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startIndent = indentLeft;
+
+                          const onMove = (mv) => {
+                            const diff = mv.clientX - startX;
+                            const newVal = Math.max(0, startIndent + diff);
+                            handleRulerChange(newVal);
+                          };
+                          const onUp = () => {
+                            window.removeEventListener('mousemove', onMove);
+                            window.removeEventListener('mouseup', onUp);
+                          };
+                          window.addEventListener('mousemove', onMove);
+                          window.addEventListener('mouseup', onUp);
+                        }}
+                      >
+                        <div className="absolute bottom-0 left-0 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-blue-600"></div>
+                        <div className="absolute bottom-[-2px] left-[-2px] w-4 h-2 bg-transparent"></div> {/* Hit area */}
+                      </div>
+                    </div>
                   </div>
                 )}
 
                 <div
                   style={{
-                    width: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '210mm' : '297mm') : (pageSettings.orientation === 'portrait' ? '215.9mm' : '279.4mm'),
-                    height: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '297mm' : '210mm') : (pageSettings.orientation === 'portrait' ? '279.4mm' : '215.9mm'),
+                    width: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '210mm' : '297mm') :
+                      pageSettings.size === 'A3' ? (pageSettings.orientation === 'portrait' ? '297mm' : '420mm') :
+                        pageSettings.size === 'A5' ? (pageSettings.orientation === 'portrait' ? '148mm' : '210mm') :
+                          pageSettings.size === 'Letter' ? (pageSettings.orientation === 'portrait' ? '215.9mm' : '279.4mm') :
+                            pageSettings.size === 'Legal' ? (pageSettings.orientation === 'portrait' ? '215.9mm' : '355.6mm') :
+                              pageSettings.size === 'Tabloid' ? (pageSettings.orientation === 'portrait' ? '279.4mm' : '431.8mm') :
+                                pageSettings.size === 'Executive' ? (pageSettings.orientation === 'portrait' ? '184.15mm' : '266.7mm') :
+                                  pageSettings.size === 'B5' ? (pageSettings.orientation === 'portrait' ? '176mm' : '250mm') :
+                                    pageSettings.size === 'Statement' ? (pageSettings.orientation === 'portrait' ? '139.7mm' : '215.9mm') :
+                                      pageSettings.size === 'Folio' ? (pageSettings.orientation === 'portrait' ? '215.9mm' : '330.2mm') :
+                                        pageSettings.size === 'Quarto' ? (pageSettings.orientation === 'portrait' ? '215mm' : '275mm') :
+                                          (pageSettings.orientation === 'portrait' ? '210mm' : '297mm'), // Fallback
+                    height: pageSettings.size === 'A4' ? (pageSettings.orientation === 'portrait' ? '297mm' : '210mm') :
+                      pageSettings.size === 'A3' ? (pageSettings.orientation === 'portrait' ? '420mm' : '297mm') :
+                        pageSettings.size === 'A5' ? (pageSettings.orientation === 'portrait' ? '210mm' : '148mm') :
+                          pageSettings.size === 'Letter' ? (pageSettings.orientation === 'portrait' ? '279.4mm' : '215.9mm') :
+                            pageSettings.size === 'Legal' ? (pageSettings.orientation === 'portrait' ? '355.6mm' : '215.9mm') :
+                              pageSettings.size === 'Tabloid' ? (pageSettings.orientation === 'portrait' ? '431.8mm' : '279.4mm') :
+                                pageSettings.size === 'Executive' ? (pageSettings.orientation === 'portrait' ? '266.7mm' : '184.15mm') :
+                                  pageSettings.size === 'B5' ? (pageSettings.orientation === 'portrait' ? '250mm' : '176mm') :
+                                    pageSettings.size === 'Statement' ? (pageSettings.orientation === 'portrait' ? '215.9mm' : '139.7mm') :
+                                      pageSettings.size === 'Folio' ? (pageSettings.orientation === 'portrait' ? '330.2mm' : '215.9mm') :
+                                        pageSettings.size === 'Quarto' ? (pageSettings.orientation === 'portrait' ? '275mm' : '215mm') :
+                                          (pageSettings.orientation === 'portrait' ? '297mm' : '210mm'), // Fallback
                     paddingTop: `${pageSettings.marginTop}mm`, paddingBottom: `${pageSettings.marginBottom}mm`, paddingLeft: `${pageSettings.marginLeft}mm`, paddingRight: `${pageSettings.marginRight}mm`
                   }}
-                  className={`bg-white ${printLayout ? 'shadow-2xl' : ''} editor-canvas flex flex-col ${isEditing ? "outline-none ring-2 ring-emerald-500/50" : "outline-none"}`}
+                  className={`bg-white ${printLayout ? 'shadow-2xl' : ''} editor-canvas flex flex-col ${isEditing ? "outline-none ring-2 ring-emerald-500/50" : "outline-none"} print:shadow-none print:ring-0`}
                 >
-                  <div
-                    ref={el => pageRefs.current[pageIndex] = el}
-                    contentEditable={isEditing}
+                  <PageContent
+                    pageRef={el => pageRefs.current[pageIndex] = el}
+                    html={pageHtml}
+                    isEditing={isEditing}
                     spellCheck={spellCheck}
-                    suppressContentEditableWarning={true}
                     onMouseUp={applyPaintFormat}
-                    onClick={handleEditorClick}
+                    onClick={(e) => {
+                      if (e.target.tagName === 'IMG') {
+                        // Ensure ID exists
+                        if (!e.target.id) e.target.id = `img-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+                        setSelectedImageId(e.target.id);
+                        setSelectedTable(null);
+                        setSelectedLine(null);
+                      } else if (e.target.tagName === 'TABLE' || e.target.closest('table')) {
+                        setSelectedTable(e.target.closest('table'));
+                        setSelectedImageId(null);
+                        setSelectedLine(null);
+                      } else if (e.target.tagName === 'HR') {
+                        setSelectedLine(e.target);
+                        setSelectedImageId(null);
+                        setSelectedTable(null);
+                      } else {
+                        setSelectedImageId(null);
+                        setSelectedTable(null);
+                        setSelectedLine(null);
+                      }
+                      handleEditorClick(e);
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Backspace') {
                         const sel = window.getSelection();
@@ -1291,7 +1673,7 @@ function InvoiceViewer() {
                         }
                       }
                     }}
-                    className="flex-grow outline-none overflow-hidden"
+                    className="flex-grow outline-none overflow-hidden print:overflow-visible print:text-black"
                     onInput={(e) => {
                       const target = e.currentTarget;
 
@@ -1353,9 +1735,9 @@ function InvoiceViewer() {
                         return newState;
                       });
                     }}
-                  ></div>
-                  {/* Footer Text */}
-                  <div className="mt-auto pt-4 text-center text-[9px] text-slate-300 uppercase tracking-widest select-none">Sheet Worker Tools • Page {pageIndex + 1}</div>
+                  />
+                  {/* Footer (Empty) */}
+                  <div className="mt-auto pt-4"></div>
                 </div>
 
                 {/* Signatures on First Page Only */}
@@ -1401,6 +1783,14 @@ function InvoiceViewer() {
                     }}
                   >
                     <img src={sig.src} className="w-full h-full object-contain pointer-events-none" />
+                    {/* Delete Button (Only when editing) */}
+                    {isEditing && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setSignatures(prev => prev.filter(s => s.id !== sig.id)); }}
+                        className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md hover:bg-red-600 z-50 text-xs"
+                        title="Hapus Tanda Tangan"
+                      >✕</button>
+                    )}
                     {isEditing && <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 cursor-nwse-resize"
                       onMouseDown={(e) => {
                         e.stopPropagation();
@@ -1441,7 +1831,7 @@ function InvoiceViewer() {
                         document.addEventListener('touchmove', onTouchMove, { passive: false });
                         document.addEventListener('touchend', onTouchEnd);
                       }}
-                    />}
+                    ></div>}
                   </div>
                 ))}
 
@@ -1457,70 +1847,116 @@ function InvoiceViewer() {
                 newState[currentIndex] = { ...newState[currentIndex], content: pages };
                 return newState;
               })}
-              className="mb-8 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-slate-600 rounded-full text-xs font-bold shadow transition"
+              className="mb-8 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-slate-600 rounded-full text-xs font-bold shadow transition print:hidden"
             >
               + Add Page
             </button>
 
-            <ImageToolbar image={selectedImage} onUpdate={updateSelectedImage} onDelete={deleteSelectedImage} />
+
           </div>
         </div>
+        {
+          showRightSidebar && (
+            <div className="w-[300px] bg-white border-l border-gray-200 flex flex-col z-[95] shadow-xl h-full print:hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-slate-50">
+                <h3 className="font-bold text-xs uppercase tracking-widest text-slate-500">Details</h3>
+                <button onClick={() => setShowRightSidebar(false)} className="text-slate-400 hover:text-slate-800">✕</button>
+              </div>
+              {/* Content */}
+              <div className="p-4 space-y-6 overflow-y-auto flex-1">
+                {/* Doc Stats */}
+                <div>
+                  <h4 className="font-bold text-xs text-slate-900 mb-2 border-b border-gray-100 pb-1">Statistics</h4>
+                  <div className="grid grid-cols-3 gap-2 text-xs text-slate-500 text-center">
+                    <div className="bg-gray-50 p-2 rounded border border-gray-100"><span className="block font-bold text-lg text-slate-800">{docStats.words}</span>Words</div>
+                    <div className="bg-gray-50 p-2 rounded border border-gray-100"><span className="block font-bold text-lg text-slate-800">{docStats.chars}</span>Chars</div>
+                    <div className="bg-gray-50 p-2 rounded border border-gray-100"><span className="block font-bold text-lg text-slate-800">{docStats.pages}</span>Pages</div>
+                  </div>
+                </div>
+                {/* View Settings */}
+                <div>
+                  <h4 className="font-bold text-xs text-slate-900 mb-2 border-b border-gray-100 pb-1">View Settings</h4>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500">Zoom Level</span>
+                    <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">{zoomLevel}%</span>
+                  </div>
+                </div>
+                {/* Paper Settings */}
+                <div>
+                  <h4 className="font-bold text-xs text-slate-900 mb-2 border-b border-gray-100 pb-1">Paper Settings</h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between text-slate-600"><span>Size</span> <span className="font-medium text-slate-800">{pageSettings.size}</span></div>
+                    <div className="flex justify-between text-slate-600"><span>Orientation</span> <span className="font-medium text-slate-800 capitalize">{pageSettings.orientation}</span></div>
+                    <div className="flex justify-between text-slate-600"><span>Margins (Top)</span> <span className="font-medium text-slate-800">{pageSettings.marginTop}mm</span></div>
+                  </div>
+                </div>
+                {/* Actions */}
+                <div>
+                  <h4 className="font-bold text-xs text-slate-900 mb-2 border-b border-gray-100 pb-1">Actions</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => window.print()} className="flex items-center justify-center gap-2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-bold transition border border-gray-200"><Icons.Print /> Print</button>
+                    <button onClick={handleDownloadPDF} className="flex items-center justify-center gap-2 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold transition shadow-md"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> PDF</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
 
-        {showRightSidebar && (
-          <div className="w-[300px] bg-white border-l border-gray-200 hidden xl:flex flex-col z-[95] shadow-xl animate-slide-in-right h-full sticky top-0">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-slate-50">
-              <h3 className="font-bold text-xs uppercase tracking-widest text-slate-500">Details</h3>
-              <button onClick={() => setShowRightSidebar(false)} className="text-slate-400 hover:text-slate-800">✕</button>
-            </div>
-            {/* Content */}
-            <div className="p-4 space-y-6 overflow-y-auto flex-1">
-              {/* Doc Info */}
-              <div>
-                <h4 className="font-bold text-xs text-slate-900 mb-2 border-b border-gray-100 pb-1">Document Info</h4>
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                  <div className="bg-gray-50 p-2 rounded border border-gray-100">
-                    <span className="block font-bold text-lg text-slate-800">{docStats.words}</span>
-                    Words
-                  </div>
-                  <div className="bg-gray-50 p-2 rounded border border-gray-100">
-                    <span className="block font-bold text-lg text-slate-800">{docStats.chars}</span>
-                    Chars
-                  </div>
-                </div>
-              </div>
-              {/* View Settings */}
-              <div>
-                <h4 className="font-bold text-xs text-slate-900 mb- text-slate-900 mb-2 border-b border-gray-100 pb-1">View Settings</h4>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">Zoom Level</span>
-                  <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">{zoomLevel}%</span>
-                </div>
-              </div>
-              {/* Paper Settings */}
-              <div>
-                <h4 className="font-bold text-xs text-slate-900 mb-2 border-b border-gray-100 pb-1">Paper Settings</h4>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between text-slate-600"><span>Size</span> <span className="font-medium text-slate-800">{pageSettings.size}</span></div>
-                  <div className="flex justify-between text-slate-600"><span>Orientation</span> <span className="font-medium text-slate-800 capitalize">{pageSettings.orientation}</span></div>
-                  <div className="flex justify-between text-slate-600"><span>Margins (Top)</span> <span className="font-medium text-slate-800">{pageSettings.marginTop}mm</span></div>
-                </div>
-              </div>
-              {/* Actions */}
-              <div>
-                <h4 className="font-bold text-xs text-slate-900 mb-2 border-b border-gray-100 pb-1">Actions</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => window.print()} className="flex items-center justify-center gap-2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-bold transition border border-gray-200">
-                    <Icons.Print /> Print
-                  </button>
-                  <button onClick={handleDownloadPDF} className="flex items-center justify-center gap-2 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-bold transition shadow-md">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> PDF
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* OVERLAY COMPONENTS */}
+        <ImageResizer
+          image={typeof document !== 'undefined' ? document.getElementById(selectedImageId) : null}
+          onUpdate={(updates) => {
+            const img = document.getElementById(selectedImageId);
+            if (img) {
+              if (updates.width) img.style.width = updates.width;
+              if (updates.style) Object.assign(img.style, updates.style);
+              if (updates.className) img.className = updates.className;
+              syncStateFromDom(img); // NEW HELPER
+            }
+          }}
+          onDelete={() => {
+            const img = document.getElementById(selectedImageId);
+            if (img) {
+              const parentPage = img.closest('.editor-canvas');
+              img.remove();
+              setSelectedImageId(null);
+              if (parentPage) syncStateFromDom(parentPage); // NEW HELPER
+            }
+          }}
+        />
+        <div className="print:hidden">
+          <TableToolbar
+            table={selectedTable}
+            onUpdate={() => syncStateFromDom(selectedTable)} // NEW HELPER
+          />
+          <LineToolbar
+            line={selectedLine}
+            onUpdate={() => syncStateFromDom(selectedLine)} // NEW HELPER
+          />
+        </div>
+
+        <OpenDocumentModal
+          isOpen={showOpenModal}
+          onClose={() => setShowOpenModal(false)}
+          invoices={savedFiles}
+          onSelect={(idx) => {
+            const selectedDoc = savedFiles[idx];
+            if (selectedDoc) {
+              const content = selectedDoc.content;
+              // Handle single object or array
+              const pages = content.content ? (Array.isArray(content.content) ? content.content : [content.content]) : (Array.isArray(content) ? content : [content]);
+              // If content is just the pages array, or object {no, content: []}
+              // Assuming row.content is the Invoice Object { no, content: [] }
+              // Let's wrap it in array for setInvoices
+              setInvoices([selectedDoc.content]);
+              setCurrentIndex(0);
+              showToast("File Dibuka", `Dokumen ${selectedDoc.no || 'Untitled'} dimuat.`, "success");
+              setShowOpenModal(false);
+            }
+          }}
+        />
       </div>
     </div>
   );
@@ -1529,38 +1965,69 @@ function InvoiceViewer() {
 // ==========================================
 // 3. ICONS SVG COLLECTION (LENGKAP SEMUA FUNGSI)
 // ==========================================
-const Icons = {
-  Logo: () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" /></svg>,
-  Undo: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" /></svg>,
-  Redo: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.4 10.6C16.55 9 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z" /></svg>,
-  Print: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19 8h-1V3H6v5H5c-1.66 0-3 1.34-3 3v6h3v4h12v-4h3v-6c0-1.66-1.34-3-3-3zM8 5h8v3H8V5zm8 12v2H8v-2h8zm2-2v-2H6v2H4v-4c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v4h-2z" /><circle cx="18" cy="11.5" r="1" /></svg>,
-  FormatPaint: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V3c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h12c.55 0 1-.45 1-1V6h1v4h-9c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2h1v-2h1c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-1zM8 16c0 .55-.45 1-1 1s-1-.45-1-1v-2h2v2z" /></svg>,
-  Bold: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.98-2.83-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z" /></svg>,
-  Italic: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z" /></svg>,
-  Underline: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z" /></svg>,
-  TextColor: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11 3L5.5 17h2.25l1.12-3h6.25l1.12 3h2.25L13 3h-2zm-1.38 9L12 5.67 14.38 12H9.62z" /><path d="M2 20h20v4H2z" fill="#000000" /></svg>,
-  Highlight: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M6 14l3 3v5h6v-5l3-3V9H6v5zm5-12h2v3h-2V2zM3.5 5.88l1.41-1.41 2.12 2.12-1.41 1.41L3.5 5.88zm13.46.71l2.12-2.12 1.41 1.41-2.12 2.12-1.41-1.41z" /></svg>,
-  Link: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" /></svg>,
-  Image: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" /></svg>,
-  AlignLeft: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M15 15H3v2h12v-2zm0-8H3v2h12V7zM3 13h18v-2H3v2zm0 8h18v-2H3v2zM3 3v2h18V3H3z" /></svg>,
-  AlignCenter: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z" /></svg>,
-  AlignRight: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z" /></svg>,
-  AlignJustify: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-6v2h18V3H3z" /></svg>,
-  ListBulleted: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12.17c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.68-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z" /></svg>,
-  ListNumbered: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z" /></svg>,
-  ListCheck: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" /><path d="M17.99 9l-1.41-1.42-6.59 6.59-2.58-2.57-1.42 1.41 4 3.99z" /></svg>,
-  IndentDecrease: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11 17h10v-2H11v2zm-8-5l4 4V8l-4 4zm0 9h18v-2H3v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z" /></svg>,
-  IndentIncrease: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z" /></svg>,
-  ClearFormat: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3.27 5L2 6.27l6.97 6.97L6.5 19h3l1.57-3.66L16.73 21 18 19.73 3.55 5.27 3.27 5zM6 5v.18L8.82 8h2.4l-.72 1.68 2.1 2.1L14.21 8H20V5H6z" /></svg>,
-  Save: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" /></svg>,
-  Email: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" /></svg>,
-  Pdf: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v2.5zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5v1.5H19v2.5h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z" /></svg>,
-  Edit: () => <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" /></svg>,
+// Icons moved to ../components/Icons.js
+
+// ==========================================
+// 4. HELPER COMPONENT: PAGE CONTENT (FIX CURSOR & PRINT)
+// ==========================================
+// Dual-view strategy: 
+// 1. Editor Div: Controlled via useLayoutEffect for cursor stability. Hidden in print.
+// 2. Print Div: Static dangerouslySetInnerHTML. Visible only in print.
+const PageContent = ({ html, isEditing, spellCheck, onInput, onKeyDown, onMouseUp, onClick, className, pageRef }) => {
+  const divRef = useRef(null);
+
+  // Sync ref back to parent (Editor Div)
+  useLayoutEffect(() => {
+    if (pageRef) {
+      if (typeof pageRef === 'function') pageRef(divRef.current);
+      else if (pageRef.hasOwnProperty('current')) pageRef.current = divRef.current;
+    }
+  }, [pageRef]);
+
+  // Sync Content ONLY if different (Prevents cursor reset) - EDITOR ONLY
+  useLayoutEffect(() => {
+    if (divRef.current && divRef.current.innerHTML !== html) {
+      divRef.current.innerHTML = html;
+    }
+  }, [html]);
+
+  return (
+    <>
+      {/* 1. EDITOR VIEW (Screen Only) */}
+      <div
+        ref={divRef}
+        contentEditable={isEditing}
+        spellCheck={spellCheck}
+        suppressContentEditableWarning={true}
+        className={`${className} print:hidden`}
+        onInput={onInput}
+        onKeyDown={onKeyDown}
+        onMouseUp={onMouseUp}
+        onClick={onClick}
+      />
+
+      {/* 2. PRINT VIEW (Print Only) */}
+      <div
+        className={`${className} hidden print:block print:overflow-visible print:h-auto text-black`}
+        dangerouslySetInnerHTML={{ __html: html }}
+        style={{ color: 'black' }} // Force black text for print
+      />
+    </>
+  );
 };
 
 export default function Page() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
+      <style jsx global>{`
+        @media print {
+          @page { margin: 0; size: auto; }
+          body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .no-print { display: none !important; }
+          .print-visible { display: block !important; overflow: visible !important; height: auto !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+      `}</style>
       <InvoiceViewer />
     </Suspense>
   );
